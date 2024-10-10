@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CineLink Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            background-color: #F9F5F4;
+        }
+        .card-custom {
+            border-radius: 15px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+        .bg-dark-custom {
+            background-color: #181617;
+            color: white;
+        }
+        .logs {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .card-title {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .header-title {
+            font-family: 'Roboto', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: #181617;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="text-center mb-5">
+            <h1 class="header-title">CineLink Dashboard</h1>
+        </div>
+
+        <!-- Last Movie Added Card -->
+        <div class="card mb-4 card-custom bg-dark-custom">
+            <div class="card-body text-center">
+                <h3>Last Movie Added</h3>
+                <h4>{{ last_movie[0] if last_movie else 'No movie added yet' }}</h4>
+                <div class="display-4">{{ last_movie[1] if last_movie else 'No rating available' }}</div>
+            </div>
+        </div>
+
+        <!-- Last 8 Movies Added Grid -->
+        <div class="row row-cols-1 row-cols-md-4 g-4 mb-4">
+            {% if last_8_movies %}
+                {% for movie in last_8_movies %}
+                    <div class="col">
+                        <div class="card h-100 text-center card-custom">
+                            <div class="card-body">
+                                <h5 class="card-title">{{ movie[0] }}</h5>
+                                <div class="display-6">{{ movie[1] }}</div>
+                            </div>
+                        </div>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <div class="col-12 text-center">
+                    <p>No movies available</p>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- Automation Time Form -->
+        <div class="card mb-4 card-custom">
+            <div class="card-body">
+                <form action="/set-schedule" method="post" class="row align-items-center justify-content-center">
+                    <div class="col-auto">
+                        <label for="time" class="form-label">Set Automation Time:</label>
+                    </div>
+                    <div class="col-auto">
+                        <input type="time" id="time" name="time" required class="form-control">
+                    </div>
+                    <div class="col-auto">
+                        <button type="submit" class="btn btn-dark">Set Time</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Current Automation Time Display -->
+        <div class="card mb-4 card-custom">
+            <div class="card-body text-center">
+                <h5>Current Automation Time: <strong>{{ scheduled_time if scheduled_time else 'No time set yet' }}</strong></h5>
+            </div>
+        </div>
+
+        <!-- Last Script Run Card -->
+        <div class="card mb-4 card-custom bg-dark-custom">
+            <div class="card-body text-center">
+                <h5>Last Script Run: {{ last_run_time if last_run_time else 'Script not run yet' }}</h5>
+            </div>
+        </div>
+
+        <!-- Trigger Script Button -->
+        <div class="text-center mb-4">
+            <form action="/run-script" method="get">
+                <button type="submit" class="btn btn-lg btn-dark">Run Python Script</button>
+            </form>
+        </div>
+
+        <!-- Logs Panel -->
+        <div class="card card-custom mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Logs</h5>
+                <div class="logs p-3 bg-light border rounded">
+                    <pre>{{ logs }}</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
