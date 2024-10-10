@@ -19,8 +19,9 @@
             color: white;
         }
         .logs {
-            max-height: 400px;
+            max-height: 300px;
             overflow-y: auto;
+            height: 300px;
         }
         .card-title {
             white-space: nowrap;
@@ -70,6 +71,19 @@
             background: linear-gradient(90deg, #241F20, #181617);
             transform: scale(1.05);
         }
+        .logs-fixed-height {
+            height: 272px;
+        }
+        .movie-title {
+            font-weight: bold;
+            font-size: 1.25rem;
+        }
+        .last-movie-added {
+            color: white;
+        }
+        .last-movie-title {
+            color: #F1C40F;
+        }
     </style>
 </head>
 <body>
@@ -85,8 +99,8 @@
         <!-- Last Movie Added Card -->
         <div class="card mb-4 card-custom bg-dark-custom">
             <div class="card-body text-center">
-                <h3>Last Movie Added</h3>
-                <h4>{{ last_movie[0] if last_movie else 'No movie added yet' }}</h4>
+                <h3 class="last-movie-title">Last Movie Added</h3>
+                <h3 class="movie-title last-movie-added">{{ last_movie[0] if last_movie else 'No movie added yet' }}</h3>
                 <div class="display-4">{{ last_movie[1] if last_movie else 'No rating available' }}</div>
             </div>
         </div>
@@ -98,7 +112,7 @@
                     <div class="col" id="movie-{{ loop.index }}">
                         <div class="card h-100 text-center card-custom movie-card">
                             <div class="card-body">
-                                <h5 class="card-title">{{ movie[0] }}</h5>
+                                <h3 class="card-title movie-title">{{ movie[0] }}</h3>
                                 <div class="display-6">{{ movie[1] }}</div>
                             </div>
                         </div>
@@ -111,50 +125,56 @@
             {% endif %}
         </div>
 
-        <!-- Automation Time Form -->
-        <div class="card mb-4 card-custom bg-highlight">
-            <div class="card-body">
-                <form action="/set-schedule" method="post" class="row align-items-center justify-content-center automation-form">
-                    <div class="col-auto">
-                        <label for="time" class="form-label">Set Automation Time:</label>
+        <div class="row">
+            <div class="col-md-6">
+                <!-- Automation Time Form -->
+                <div class="card mb-4 card-custom bg-highlight">
+                    <div class="card-body">
+                        <form action="/set-schedule" method="post" class="row align-items-center justify-content-center automation-form">
+                            <div class="col-auto">
+                                <label for="time" class="form-label">Set Automation Time:</label>
+                            </div>
+                            <div class="col-auto">
+                                <input type="time" id="time" name="time" required class="form-control">
+                            </div>
+                            <div class="col-auto">
+                                <button type="submit" class="btn btn-custom text-white">Set Time</button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="col-auto">
-                        <input type="time" id="time" name="time" required class="form-control">
+                </div>
+
+                <!-- Current Automation Time Display -->
+                <div class="card mb-4 card-custom">
+                    <div class="card-body text-center">
+                        <h5>Current Automation Time: <strong>{{ scheduled_time if scheduled_time else 'No time set yet' }}</strong></h5>
                     </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-custom text-white">Set Time</button>
+                </div>
+
+                <!-- Last Script Run Card -->
+                <div class="card mb-4 card-custom" style="background-color: #6d6468; color: white;">
+                    <div class="card-body text-center last-script-run">
+                        <h5>Last Script Run: {{ last_run_time if last_run_time else 'Script not run yet' }}</h5>
                     </div>
-                </form>
+                </div>
+
+                <!-- Trigger Script Button -->
+                <div class="text-center mb-4">
+                    <form action="/run-script-stream" method="get">
+                        <button type="submit" class="btn btn-lg btn-custom text-white" id="run-script-btn">Manual Update</button>
+                    </form>
+                </div>
             </div>
-        </div>
 
-        <!-- Current Automation Time Display -->
-        <div class="card mb-4 card-custom">
-            <div class="card-body text-center">
-                <h5>Current Automation Time: <strong>{{ scheduled_time if scheduled_time else 'No time set yet' }}</strong></h5>
-            </div>
-        </div>
-
-        <!-- Last Script Run Card -->
-        <div class="card mb-4 card-custom" style="background-color: #6d6468; color: white;">
-            <div class="card-body text-center last-script-run">
-                <h5>Last Script Run: {{ last_run_time if last_run_time else 'Script not run yet' }}</h5>
-            </div>
-        </div>
-
-        <!-- Trigger Script Button -->
-        <div class="text-center mb-4">
-            <form action="/run-script-stream" method="get">
-                <button type="submit" class="btn btn-lg btn-custom text-white" id="run-script-btn">Manual Update</button>
-            </form>
-        </div>
-
-        <!-- Logs Panel -->
-        <div class="card card-custom mb-4">
-            <div class="card-body">
-                <h5 class="card-title">Logs</h5>
-                <div class="logs p-3 bg-light border rounded">
-                    <pre id="logs-content"></pre>
+            <!-- Logs Panel -->
+            <div class="col-md-6">
+                <div class="card card-custom mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Logs</h5>
+                        <div class="logs logs-fixed-height p-3 bg-light border rounded" style="overflow-y: auto; display: flex; flex-direction: column-reverse;">
+                            <pre id="logs-content"></pre>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -166,8 +186,7 @@
         var socket = io();
         socket.on('log_update', function(data) {
             var logsContent = document.getElementById('logs-content');
-            logsContent.textContent += data.log_entry + '\n';
-            logsContent.scrollTop = logsContent.scrollHeight;
+            logsContent.textContent = data.log_entry + '\n' + logsContent.textContent;
         });
     </script>
 </body>
