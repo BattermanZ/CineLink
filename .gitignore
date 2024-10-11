@@ -10,6 +10,7 @@ __pycache__/
 .env
 
 # Ignore logs
+logs/
 *.log
 
 # Ignore database
