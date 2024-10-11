@@ -5124,3 +5124,721 @@ RuntimeError: There is no current event loop in thread 'Dummy-3'.
 2024-10-10 18:22:02 - INFO - jUgQSOay8Gv2K3MDAAAA: Received request to upgrade to websocket
 2024-10-10 18:22:02 - INFO - 127.0.0.1 - - [2024-10-10 18:22:02] "GET /socket.io/?EIO=4&transport=polling&t=P9tFBsm&sid=jUgQSOay8Gv2K3MDAAAA HTTP/1.1" 200 157 0.000310
 2024-10-10 18:22:02 - INFO - jUgQSOay8Gv2K3MDAAAA: Upgrade to websocket successful
+2024-10-11 13:18:07 - INFO - Server initialized for gevent.
+2024-10-11 13:18:08 - INFO - Server initialized for gevent.
+2024-10-11 13:18:11 - INFO - od330qtQSxwGWXZaAAAA: Sending packet OPEN data {'sid': 'od330qtQSxwGWXZaAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:18:11 - INFO - 127.0.0.1 - - [2024-10-11 13:18:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xJEfj HTTP/1.1" 200 254 0.003459
+2024-10-11 13:18:11 - INFO - od330qtQSxwGWXZaAAAA: Received packet MESSAGE data 0
+2024-10-11 13:18:11 - INFO - od330qtQSxwGWXZaAAAA: Sending packet MESSAGE data 0{"sid":"lDxXOHy5P5cf7lJ9AAAB"}
+2024-10-11 13:18:11 - INFO - 127.0.0.1 - - [2024-10-11 13:18:11] "POST /socket.io/?EIO=4&transport=polling&t=P9xJEft&sid=od330qtQSxwGWXZaAAAA HTTP/1.1" 200 195 0.002252
+2024-10-11 13:18:11 - INFO - od330qtQSxwGWXZaAAAA: Received request to upgrade to websocket
+2024-10-11 13:18:11 - INFO - 127.0.0.1 - - [2024-10-11 13:18:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xJEf-&sid=od330qtQSxwGWXZaAAAA HTTP/1.1" 200 157 0.000108
+2024-10-11 13:18:11 - INFO - od330qtQSxwGWXZaAAAA: Upgrade to websocket successful
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET / HTTP/1.1" 200 10235 0.009566
+2024-10-11 13:18:30 - INFO - GyaHlOLNOLwyTaWcAAAC: Sending packet OPEN data {'sid': 'GyaHlOLNOLwyTaWcAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJLQ HTTP/1.1" 200 254 0.002773
+2024-10-11 13:18:30 - INFO - GyaHlOLNOLwyTaWcAAAC: Received packet MESSAGE data 0
+2024-10-11 13:18:30 - INFO - GyaHlOLNOLwyTaWcAAAC: Sending packet MESSAGE data 0{"sid":"0cuboJ_DUewN-KGbAAAD"}
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "POST /socket.io/?EIO=4&transport=polling&t=P9xJJLa&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 195 0.002319
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJLe&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 189 0.000103
+2024-10-11 13:18:30 - INFO - GyaHlOLNOLwyTaWcAAAC: Received request to upgrade to websocket
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJM4&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 157 0.000393
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJMC&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 157 0.000328
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJMG&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 157 0.000092
+2024-10-11 13:18:30 - INFO - 127.0.0.1 - - [2024-10-11 13:18:30] "GET /socket.io/?EIO=4&transport=polling&t=P9xJJMK&sid=GyaHlOLNOLwyTaWcAAAC HTTP/1.1" 200 157 0.000074
+2024-10-11 13:18:30 - INFO - GyaHlOLNOLwyTaWcAAAC: Upgrade to websocket successful
+2024-10-11 13:18:49 - INFO - Server initialized for gevent.
+2024-10-11 13:18:49 - INFO - Server initialized for gevent.
+2024-10-11 13:18:51 - INFO - akoNYUKouq9PY6ACAAAA: Sending packet OPEN data {'sid': 'akoNYUKouq9PY6ACAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:18:51 - INFO - 127.0.0.1 - - [2024-10-11 13:18:51] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOMR HTTP/1.1" 200 254 0.001060
+2024-10-11 13:18:51 - INFO - akoNYUKouq9PY6ACAAAA: Received packet MESSAGE data 0
+2024-10-11 13:18:51 - INFO - akoNYUKouq9PY6ACAAAA: Sending packet MESSAGE data 0{"sid":"yY7EkGWTDsMlKDJFAAAB"}
+2024-10-11 13:18:51 - INFO - 127.0.0.1 - - [2024-10-11 13:18:51] "POST /socket.io/?EIO=4&transport=polling&t=P9xJOMZ&sid=akoNYUKouq9PY6ACAAAA HTTP/1.1" 200 195 0.001758
+2024-10-11 13:18:51 - INFO - akoNYUKouq9PY6ACAAAA: Received request to upgrade to websocket
+2024-10-11 13:18:51 - INFO - 127.0.0.1 - - [2024-10-11 13:18:51] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOMd&sid=akoNYUKouq9PY6ACAAAA HTTP/1.1" 200 157 0.000056
+2024-10-11 13:18:51 - INFO - akoNYUKouq9PY6ACAAAA: Upgrade to websocket successful
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET / HTTP/1.1" 200 10292 0.009616
+2024-10-11 13:18:52 - INFO - e6psr02xC67Vqg6HAAAC: Sending packet OPEN data {'sid': 'e6psr02xC67Vqg6HAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOmJ HTTP/1.1" 200 254 0.003261
+2024-10-11 13:18:52 - INFO - e6psr02xC67Vqg6HAAAC: Received packet MESSAGE data 0
+2024-10-11 13:18:52 - INFO - e6psr02xC67Vqg6HAAAC: Sending packet MESSAGE data 0{"sid":"3L3A3ykiORMz567WAAAD"}
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "POST /socket.io/?EIO=4&transport=polling&t=P9xJOmb&sid=e6psr02xC67Vqg6HAAAC HTTP/1.1" 200 195 0.003388
+2024-10-11 13:18:52 - INFO - e6psr02xC67Vqg6HAAAC: Received request to upgrade to websocket
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOme&sid=e6psr02xC67Vqg6HAAAC HTTP/1.1" 200 157 0.000095
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOn7&sid=e6psr02xC67Vqg6HAAAC HTTP/1.1" 200 157 0.000506
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOnB&sid=e6psr02xC67Vqg6HAAAC HTTP/1.1" 200 157 0.000076
+2024-10-11 13:18:52 - INFO - 127.0.0.1 - - [2024-10-11 13:18:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xJOnQ&sid=e6psr02xC67Vqg6HAAAC HTTP/1.1" 200 157 0.000397
+2024-10-11 13:18:52 - INFO - e6psr02xC67Vqg6HAAAC: Upgrade to websocket successful
+2024-10-11 13:19:11 - INFO - Server initialized for gevent.
+2024-10-11 13:19:12 - INFO - Server initialized for gevent.
+2024-10-11 13:19:12 - INFO - ym0-MAYdCvsWAjQqAAAA: Sending packet OPEN data {'sid': 'ym0-MAYdCvsWAjQqAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:19:12 - INFO - 127.0.0.1 - - [2024-10-11 13:19:12] "GET /socket.io/?EIO=4&transport=polling&t=P9xJTiN HTTP/1.1" 200 254 0.001849
+2024-10-11 13:19:12 - INFO - ym0-MAYdCvsWAjQqAAAA: Received packet MESSAGE data 0
+2024-10-11 13:19:12 - INFO - ym0-MAYdCvsWAjQqAAAA: Sending packet MESSAGE data 0{"sid":"eBeVUNfHc_wUFdoAAAAB"}
+2024-10-11 13:19:12 - INFO - 127.0.0.1 - - [2024-10-11 13:19:12] "POST /socket.io/?EIO=4&transport=polling&t=P9xJTic&sid=ym0-MAYdCvsWAjQqAAAA HTTP/1.1" 200 195 0.007915
+2024-10-11 13:19:12 - INFO - ym0-MAYdCvsWAjQqAAAA: Received request to upgrade to websocket
+2024-10-11 13:19:12 - INFO - 127.0.0.1 - - [2024-10-11 13:19:12] "GET /socket.io/?EIO=4&transport=polling&t=P9xJTif&sid=ym0-MAYdCvsWAjQqAAAA HTTP/1.1" 200 157 0.000061
+2024-10-11 13:19:12 - INFO - 127.0.0.1 - - [2024-10-11 13:19:12] "GET /socket.io/?EIO=4&transport=polling&t=P9xJTiu&sid=ym0-MAYdCvsWAjQqAAAA HTTP/1.1" 200 157 0.000067
+2024-10-11 13:19:12 - INFO - ym0-MAYdCvsWAjQqAAAA: Upgrade to websocket successful
+2024-10-11 13:19:15 - INFO - 127.0.0.1 - - [2024-10-11 13:19:15] "GET / HTTP/1.1" 200 10294 0.011271
+2024-10-11 13:19:15 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet OPEN data {'sid': 'tFt4AkVKC1HxHhCPAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:19:15 - INFO - 127.0.0.1 - - [2024-10-11 13:19:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xJUHy HTTP/1.1" 200 254 0.002183
+2024-10-11 13:19:15 - INFO - tFt4AkVKC1HxHhCPAAAC: Received packet MESSAGE data 0
+2024-10-11 13:19:15 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet MESSAGE data 0{"sid":"exfDUrWMYURemDeJAAAD"}
+2024-10-11 13:19:15 - INFO - 127.0.0.1 - - [2024-10-11 13:19:15] "POST /socket.io/?EIO=4&transport=polling&t=P9xJUI3&sid=tFt4AkVKC1HxHhCPAAAC HTTP/1.1" 200 195 0.009073
+2024-10-11 13:19:15 - INFO - 127.0.0.1 - - [2024-10-11 13:19:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xJUI6&sid=tFt4AkVKC1HxHhCPAAAC HTTP/1.1" 200 189 0.000138
+2024-10-11 13:19:15 - INFO - tFt4AkVKC1HxHhCPAAAC: Received request to upgrade to websocket
+2024-10-11 13:19:15 - INFO - 127.0.0.1 - - [2024-10-11 13:19:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xJUIM&sid=tFt4AkVKC1HxHhCPAAAC HTTP/1.1" 200 157 0.000084
+2024-10-11 13:19:15 - INFO - tFt4AkVKC1HxHhCPAAAC: Upgrade to websocket successful
+2024-10-11 13:19:40 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet PING data None
+2024-10-11 13:19:40 - INFO - tFt4AkVKC1HxHhCPAAAC: Received packet PONG data 
+2024-10-11 13:20:05 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet PING data None
+2024-10-11 13:20:05 - INFO - tFt4AkVKC1HxHhCPAAAC: Received packet PONG data 
+2024-10-11 13:20:30 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet PING data None
+2024-10-11 13:20:30 - INFO - tFt4AkVKC1HxHhCPAAAC: Received packet PONG data 
+2024-10-11 13:20:55 - INFO - tFt4AkVKC1HxHhCPAAAC: Sending packet PING data None
+2024-10-11 13:20:55 - INFO - tFt4AkVKC1HxHhCPAAAC: Received packet PONG data 
+2024-10-11 13:21:05 - INFO - Server initialized for gevent.
+2024-10-11 13:21:06 - INFO - Server initialized for gevent.
+2024-10-11 13:21:06 - INFO - fNzhsWIeBpw12-x7AAAA: Sending packet OPEN data {'sid': 'fNzhsWIeBpw12-x7AAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:21:06 - INFO - 127.0.0.1 - - [2024-10-11 13:21:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvGW HTTP/1.1" 200 254 0.000659
+2024-10-11 13:21:06 - INFO - fNzhsWIeBpw12-x7AAAA: Received packet MESSAGE data 0
+2024-10-11 13:21:06 - INFO - fNzhsWIeBpw12-x7AAAA: Sending packet MESSAGE data 0{"sid":"nMC9LtWN6gviLLo2AAAB"}
+2024-10-11 13:21:06 - INFO - 127.0.0.1 - - [2024-10-11 13:21:06] "POST /socket.io/?EIO=4&transport=polling&t=P9xJvMj&sid=fNzhsWIeBpw12-x7AAAA HTTP/1.1" 200 195 0.001683
+2024-10-11 13:21:06 - INFO - fNzhsWIeBpw12-x7AAAA: Received request to upgrade to websocket
+2024-10-11 13:21:06 - INFO - 127.0.0.1 - - [2024-10-11 13:21:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvMm&sid=fNzhsWIeBpw12-x7AAAA HTTP/1.1" 200 157 0.000059
+2024-10-11 13:21:06 - INFO - fNzhsWIeBpw12-x7AAAA: Upgrade to websocket successful
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "GET / HTTP/1.1" 200 10322 0.010138
+2024-10-11 13:21:08 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet OPEN data {'sid': 'pjj0U5J2XQLYc0zYAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvvv HTTP/1.1" 200 254 0.003480
+2024-10-11 13:21:08 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet MESSAGE data 0
+2024-10-11 13:21:08 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet MESSAGE data 0{"sid":"YjqXjUxLHhIRJnHEAAAD"}
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "POST /socket.io/?EIO=4&transport=polling&t=P9xJvw3&sid=pjj0U5J2XQLYc0zYAAAC HTTP/1.1" 200 195 0.002039
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvw6&sid=pjj0U5J2XQLYc0zYAAAC HTTP/1.1" 200 189 0.000125
+2024-10-11 13:21:08 - INFO - pjj0U5J2XQLYc0zYAAAC: Received request to upgrade to websocket
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvwN&sid=pjj0U5J2XQLYc0zYAAAC HTTP/1.1" 200 157 0.000435
+2024-10-11 13:21:08 - INFO - 127.0.0.1 - - [2024-10-11 13:21:08] "GET /socket.io/?EIO=4&transport=polling&t=P9xJvwT&sid=pjj0U5J2XQLYc0zYAAAC HTTP/1.1" 200 157 0.000088
+2024-10-11 13:21:08 - INFO - pjj0U5J2XQLYc0zYAAAC: Upgrade to websocket successful
+2024-10-11 13:21:33 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:21:33 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:21:58 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:21:58 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:22:23 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:22:23 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:22:48 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:22:48 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:23:13 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:23:13 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:23:38 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:23:38 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:24:03 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:24:03 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:24:28 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:24:28 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:24:53 - INFO - pjj0U5J2XQLYc0zYAAAC: Sending packet PING data None
+2024-10-11 13:24:53 - INFO - pjj0U5J2XQLYc0zYAAAC: Received packet PONG data 
+2024-10-11 13:25:06 - INFO - Server initialized for gevent.
+2024-10-11 13:25:07 - INFO - Server initialized for gevent.
+2024-10-11 13:25:09 - INFO - 127.0.0.1 - - [2024-10-11 13:25:09] "GET / HTTP/1.1" 200 10317 0.010541
+2024-10-11 13:25:09 - INFO - 1Co_XuMyaopFl541AAAA: Sending packet OPEN data {'sid': '1Co_XuMyaopFl541AAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:25:09 - INFO - 127.0.0.1 - - [2024-10-11 13:25:09] "GET /socket.io/?EIO=4&transport=polling&t=P9xKqlI HTTP/1.1" 200 254 0.005134
+2024-10-11 13:25:09 - INFO - 1Co_XuMyaopFl541AAAA: Received packet MESSAGE data 0
+2024-10-11 13:25:09 - INFO - 1Co_XuMyaopFl541AAAA: Sending packet MESSAGE data 0{"sid":"yKxPzRxaKOProSgqAAAB"}
+2024-10-11 13:25:09 - INFO - 127.0.0.1 - - [2024-10-11 13:25:09] "POST /socket.io/?EIO=4&transport=polling&t=P9xKqle&sid=1Co_XuMyaopFl541AAAA HTTP/1.1" 200 195 0.006575
+2024-10-11 13:25:09 - INFO - 1Co_XuMyaopFl541AAAA: Received request to upgrade to websocket
+2024-10-11 13:25:09 - INFO - 127.0.0.1 - - [2024-10-11 13:25:09] "GET /socket.io/?EIO=4&transport=polling&t=P9xKqlh&sid=1Co_XuMyaopFl541AAAA HTTP/1.1" 200 157 0.000124
+2024-10-11 13:25:09 - INFO - 1Co_XuMyaopFl541AAAA: Upgrade to websocket successful
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET / HTTP/1.1" 200 10317 0.005437
+2024-10-11 13:25:15 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Sending packet OPEN data {'sid': '5-L9OYMaJMLZ0pi1AAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xKsJj HTTP/1.1" 200 254 0.001952
+2024-10-11 13:25:15 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Received packet MESSAGE data 0
+2024-10-11 13:25:15 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Sending packet MESSAGE data 0{"sid":"8k1fwYWL83EtgBdjAAAD"}
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "POST /socket.io/?EIO=4&transport=polling&t=P9xKsJp&sid=5-L9OYMaJMLZ0pi1AAAC HTTP/1.1" 200 195 0.002450
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xKsJs&sid=5-L9OYMaJMLZ0pi1AAAC HTTP/1.1" 200 189 0.000076
+2024-10-11 13:25:15 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Received request to upgrade to websocket
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xKsK6&sid=5-L9OYMaJMLZ0pi1AAAC HTTP/1.1" 200 157 0.000096
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xKsKA&sid=5-L9OYMaJMLZ0pi1AAAC HTTP/1.1" 200 157 0.000106
+2024-10-11 13:25:15 - INFO - 127.0.0.1 - - [2024-10-11 13:25:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xKsKE&sid=5-L9OYMaJMLZ0pi1AAAC HTTP/1.1" 200 157 0.000080
+2024-10-11 13:25:15 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Upgrade to websocket successful
+2024-10-11 13:25:40 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Sending packet PING data None
+2024-10-11 13:25:40 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Received packet PONG data 
+2024-10-11 13:26:05 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Sending packet PING data None
+2024-10-11 13:26:05 - INFO - 5-L9OYMaJMLZ0pi1AAAC: Received packet PONG data 
+2024-10-11 13:26:24 - INFO - Server initialized for gevent.
+2024-10-11 13:26:25 - INFO - Server initialized for gevent.
+2024-10-11 13:26:26 - INFO - E6RyHQ7OAC8Lg44PAAAA: Sending packet OPEN data {'sid': 'E6RyHQ7OAC8Lg44PAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:26:26 - INFO - 127.0.0.1 - - [2024-10-11 13:26:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xL7Tu HTTP/1.1" 200 254 0.000892
+2024-10-11 13:26:26 - INFO - E6RyHQ7OAC8Lg44PAAAA: Received packet MESSAGE data 0
+2024-10-11 13:26:26 - INFO - E6RyHQ7OAC8Lg44PAAAA: Sending packet MESSAGE data 0{"sid":"trwhbgLTZn94QLpeAAAB"}
+2024-10-11 13:26:26 - INFO - 127.0.0.1 - - [2024-10-11 13:26:26] "POST /socket.io/?EIO=4&transport=polling&t=P9xL7U1&sid=E6RyHQ7OAC8Lg44PAAAA HTTP/1.1" 200 195 0.001539
+2024-10-11 13:26:26 - INFO - E6RyHQ7OAC8Lg44PAAAA: Received request to upgrade to websocket
+2024-10-11 13:26:26 - INFO - 127.0.0.1 - - [2024-10-11 13:26:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xL7U5&sid=E6RyHQ7OAC8Lg44PAAAA HTTP/1.1" 200 157 0.000083
+2024-10-11 13:26:26 - INFO - 127.0.0.1 - - [2024-10-11 13:26:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xL7UF&sid=E6RyHQ7OAC8Lg44PAAAA HTTP/1.1" 200 157 0.000596
+2024-10-11 13:26:26 - INFO - E6RyHQ7OAC8Lg44PAAAA: Upgrade to websocket successful
+2024-10-11 13:26:31 - INFO - 127.0.0.1 - - [2024-10-11 13:26:31] "GET / HTTP/1.1" 200 10311 0.006435
+2024-10-11 13:26:32 - INFO - dEr-nFaKv-zeid4MAAAC: Sending packet OPEN data {'sid': 'dEr-nFaKv-zeid4MAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:26:32 - INFO - 127.0.0.1 - - [2024-10-11 13:26:32] "GET /socket.io/?EIO=4&transport=polling&t=P9xL8u_ HTTP/1.1" 200 254 0.006866
+2024-10-11 13:26:32 - INFO - dEr-nFaKv-zeid4MAAAC: Received packet MESSAGE data 0
+2024-10-11 13:26:32 - INFO - dEr-nFaKv-zeid4MAAAC: Sending packet MESSAGE data 0{"sid":"EKG6HQzmlADqWdYkAAAD"}
+2024-10-11 13:26:32 - INFO - 127.0.0.1 - - [2024-10-11 13:26:32] "POST /socket.io/?EIO=4&transport=polling&t=P9xL8vP&sid=dEr-nFaKv-zeid4MAAAC HTTP/1.1" 200 195 0.005489
+2024-10-11 13:26:32 - INFO - 127.0.0.1 - - [2024-10-11 13:26:32] "GET /socket.io/?EIO=4&transport=polling&t=P9xL8vS&sid=dEr-nFaKv-zeid4MAAAC HTTP/1.1" 200 189 0.000142
+2024-10-11 13:26:32 - INFO - dEr-nFaKv-zeid4MAAAC: Received request to upgrade to websocket
+2024-10-11 13:26:32 - INFO - 127.0.0.1 - - [2024-10-11 13:26:32] "GET /socket.io/?EIO=4&transport=polling&t=P9xL8vb&sid=dEr-nFaKv-zeid4MAAAC HTTP/1.1" 200 157 0.000205
+2024-10-11 13:26:32 - INFO - dEr-nFaKv-zeid4MAAAC: Upgrade to websocket successful
+2024-10-11 13:26:57 - INFO - dEr-nFaKv-zeid4MAAAC: Sending packet PING data None
+2024-10-11 13:26:57 - INFO - dEr-nFaKv-zeid4MAAAC: Received packet PONG data 
+2024-10-11 13:27:22 - INFO - dEr-nFaKv-zeid4MAAAC: Sending packet PING data None
+2024-10-11 13:27:22 - INFO - dEr-nFaKv-zeid4MAAAC: Received packet PONG data 
+2024-10-11 13:27:25 - INFO - 127.0.0.1 - - [2024-10-11 13:27:25] "GET / HTTP/1.1" 200 10311 0.006396
+2024-10-11 13:27:26 - INFO - vuEnebToiNzSDsrNAAAE: Sending packet OPEN data {'sid': 'vuEnebToiNzSDsrNAAAE', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:27:26 - INFO - 127.0.0.1 - - [2024-10-11 13:27:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xLM4y HTTP/1.1" 200 254 0.000872
+2024-10-11 13:27:26 - INFO - vuEnebToiNzSDsrNAAAE: Received packet MESSAGE data 0
+2024-10-11 13:27:26 - INFO - vuEnebToiNzSDsrNAAAE: Sending packet MESSAGE data 0{"sid":"mmVLqHqzltZbPlJOAAAF"}
+2024-10-11 13:27:26 - INFO - 127.0.0.1 - - [2024-10-11 13:27:26] "POST /socket.io/?EIO=4&transport=polling&t=P9xLM51&sid=vuEnebToiNzSDsrNAAAE HTTP/1.1" 200 195 0.016672
+2024-10-11 13:27:26 - INFO - vuEnebToiNzSDsrNAAAE: Received request to upgrade to websocket
+2024-10-11 13:27:26 - INFO - 127.0.0.1 - - [2024-10-11 13:27:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xLM54&sid=vuEnebToiNzSDsrNAAAE HTTP/1.1" 200 157 0.000158
+2024-10-11 13:27:26 - INFO - 127.0.0.1 - - [2024-10-11 13:27:26] "GET /socket.io/?EIO=4&transport=polling&t=P9xLM5W&sid=vuEnebToiNzSDsrNAAAE HTTP/1.1" 200 157 0.000223
+2024-10-11 13:27:26 - INFO - vuEnebToiNzSDsrNAAAE: Upgrade to websocket successful
+2024-10-11 13:27:51 - INFO - vuEnebToiNzSDsrNAAAE: Sending packet PING data None
+2024-10-11 13:27:51 - INFO - vuEnebToiNzSDsrNAAAE: Received packet PONG data 
+2024-10-11 13:28:03 - INFO - Server initialized for gevent.
+2024-10-11 13:28:04 - INFO - Server initialized for gevent.
+2024-10-11 13:28:06 - INFO - LVUUUW03de3VDldyAAAA: Sending packet OPEN data {'sid': 'LVUUUW03de3VDldyAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:28:06 - INFO - 127.0.0.1 - - [2024-10-11 13:28:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xLVsd HTTP/1.1" 200 254 0.004642
+2024-10-11 13:28:06 - INFO - LVUUUW03de3VDldyAAAA: Received packet MESSAGE data 0
+2024-10-11 13:28:06 - INFO - LVUUUW03de3VDldyAAAA: Sending packet MESSAGE data 0{"sid":"NCWY9hpYtFa9YZd7AAAB"}
+2024-10-11 13:28:06 - INFO - 127.0.0.1 - - [2024-10-11 13:28:06] "POST /socket.io/?EIO=4&transport=polling&t=P9xLVtQ&sid=LVUUUW03de3VDldyAAAA HTTP/1.1" 200 195 0.003679
+2024-10-11 13:28:06 - INFO - LVUUUW03de3VDldyAAAA: Received request to upgrade to websocket
+2024-10-11 13:28:06 - INFO - 127.0.0.1 - - [2024-10-11 13:28:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xLVuW&sid=LVUUUW03de3VDldyAAAA HTTP/1.1" 200 157 0.000212
+2024-10-11 13:28:06 - INFO - 127.0.0.1 - - [2024-10-11 13:28:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xLVv1&sid=LVUUUW03de3VDldyAAAA HTTP/1.1" 200 157 0.000233
+2024-10-11 13:28:06 - INFO - LVUUUW03de3VDldyAAAA: Upgrade to websocket successful
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "GET / HTTP/1.1" 200 10574 0.010065
+2024-10-11 13:28:11 - INFO - ZuQ0RstAFfddJubHAAAC: Sending packet OPEN data {'sid': 'ZuQ0RstAFfddJubHAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xLXIr HTTP/1.1" 200 254 0.001213
+2024-10-11 13:28:11 - INFO - ZuQ0RstAFfddJubHAAAC: Received packet MESSAGE data 0
+2024-10-11 13:28:11 - INFO - ZuQ0RstAFfddJubHAAAC: Sending packet MESSAGE data 0{"sid":"ahdJ9JqukzFUJl-UAAAD"}
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "POST /socket.io/?EIO=4&transport=polling&t=P9xLXIx&sid=ZuQ0RstAFfddJubHAAAC HTTP/1.1" 200 195 0.002459
+2024-10-11 13:28:11 - INFO - ZuQ0RstAFfddJubHAAAC: Received request to upgrade to websocket
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xLXJ1&sid=ZuQ0RstAFfddJubHAAAC HTTP/1.1" 200 157 0.000115
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xLXJI&sid=ZuQ0RstAFfddJubHAAAC HTTP/1.1" 200 157 0.000126
+2024-10-11 13:28:11 - INFO - 127.0.0.1 - - [2024-10-11 13:28:11] "GET /socket.io/?EIO=4&transport=polling&t=P9xLXJO&sid=ZuQ0RstAFfddJubHAAAC HTTP/1.1" 200 157 0.000105
+2024-10-11 13:28:11 - INFO - ZuQ0RstAFfddJubHAAAC: Upgrade to websocket successful
+2024-10-11 13:28:36 - INFO - ZuQ0RstAFfddJubHAAAC: Sending packet PING data None
+2024-10-11 13:28:36 - INFO - ZuQ0RstAFfddJubHAAAC: Received packet PONG data 
+2024-10-11 13:28:54 - INFO - Server initialized for gevent.
+2024-10-11 13:28:55 - INFO - Server initialized for gevent.
+2024-10-11 13:28:56 - INFO - r2sonSO53uORquBEAAAA: Sending packet OPEN data {'sid': 'r2sonSO53uORquBEAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:28:56 - INFO - 127.0.0.1 - - [2024-10-11 13:28:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xLi39 HTTP/1.1" 200 254 0.002500
+2024-10-11 13:28:56 - INFO - r2sonSO53uORquBEAAAA: Received packet MESSAGE data 0
+2024-10-11 13:28:56 - INFO - r2sonSO53uORquBEAAAA: Sending packet MESSAGE data 0{"sid":"lEWvFUMswjk8aeRiAAAB"}
+2024-10-11 13:28:56 - INFO - 127.0.0.1 - - [2024-10-11 13:28:56] "POST /socket.io/?EIO=4&transport=polling&t=P9xLi3b&sid=r2sonSO53uORquBEAAAA HTTP/1.1" 200 195 0.001978
+2024-10-11 13:28:56 - INFO - r2sonSO53uORquBEAAAA: Received request to upgrade to websocket
+2024-10-11 13:28:56 - INFO - 127.0.0.1 - - [2024-10-11 13:28:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xLi3f&sid=r2sonSO53uORquBEAAAA HTTP/1.1" 200 157 0.000319
+2024-10-11 13:28:56 - INFO - r2sonSO53uORquBEAAAA: Upgrade to websocket successful
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "GET / HTTP/1.1" 200 10927 0.010659
+2024-10-11 13:28:58 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet OPEN data {'sid': 'JT9Ii7SfGCWfB6ZCAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "GET /socket.io/?EIO=4&transport=polling&t=P9xLiiB HTTP/1.1" 200 254 0.004748
+2024-10-11 13:28:58 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet MESSAGE data 0
+2024-10-11 13:28:58 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet MESSAGE data 0{"sid":"4-1-df8GdCw5LqdBAAAD"}
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "POST /socket.io/?EIO=4&transport=polling&t=P9xLiib&sid=JT9Ii7SfGCWfB6ZCAAAC HTTP/1.1" 200 195 0.003824
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "GET /socket.io/?EIO=4&transport=polling&t=P9xLiie&sid=JT9Ii7SfGCWfB6ZCAAAC HTTP/1.1" 200 189 0.000095
+2024-10-11 13:28:58 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received request to upgrade to websocket
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "GET /socket.io/?EIO=4&transport=polling&t=P9xLiin&sid=JT9Ii7SfGCWfB6ZCAAAC HTTP/1.1" 200 157 0.000100
+2024-10-11 13:28:58 - INFO - 127.0.0.1 - - [2024-10-11 13:28:58] "GET /socket.io/?EIO=4&transport=polling&t=P9xLiir&sid=JT9Ii7SfGCWfB6ZCAAAC HTTP/1.1" 200 157 0.000088
+2024-10-11 13:28:58 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Upgrade to websocket successful
+2024-10-11 13:29:23 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:29:23 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:29:48 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:29:48 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:30:13 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:30:13 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:30:38 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:30:38 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:31:03 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:31:03 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:31:28 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Sending packet PING data None
+2024-10-11 13:31:28 - INFO - JT9Ii7SfGCWfB6ZCAAAC: Received packet PONG data 
+2024-10-11 13:31:41 - INFO - Server initialized for gevent.
+2024-10-11 13:31:42 - INFO - Server initialized for gevent.
+2024-10-11 13:31:44 - INFO - 127.0.0.1 - - [2024-10-11 13:31:44] "GET / HTTP/1.1" 200 10226 0.007108
+2024-10-11 13:31:44 - INFO - x2SsY0A5XrgBX7JWAAAA: Sending packet OPEN data {'sid': 'x2SsY0A5XrgBX7JWAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "GET /socket.io/?EIO=4&transport=polling&t=P9xMLJZ HTTP/1.1" 200 254 0.004811
+2024-10-11 13:31:45 - INFO - x2SsY0A5XrgBX7JWAAAA: Received packet MESSAGE data 0
+2024-10-11 13:31:45 - INFO - x2SsY0A5XrgBX7JWAAAA: Sending packet MESSAGE data 0{"sid":"ESqnaKQBNr8ut3OfAAAB"}
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "POST /socket.io/?EIO=4&transport=polling&t=P9xMLJk&sid=x2SsY0A5XrgBX7JWAAAA HTTP/1.1" 200 195 0.001020
+2024-10-11 13:31:45 - INFO - x2SsY0A5XrgBX7JWAAAA: Received request to upgrade to websocket
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "GET /socket.io/?EIO=4&transport=polling&t=P9xMLJo&sid=x2SsY0A5XrgBX7JWAAAA HTTP/1.1" 200 157 0.000150
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "GET /socket.io/?EIO=4&transport=polling&t=P9xMLKD&sid=x2SsY0A5XrgBX7JWAAAA HTTP/1.1" 200 157 0.000137
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "GET /socket.io/?EIO=4&transport=polling&t=P9xMLKJ&sid=x2SsY0A5XrgBX7JWAAAA HTTP/1.1" 200 157 0.000086
+2024-10-11 13:31:45 - INFO - 127.0.0.1 - - [2024-10-11 13:31:45] "GET /socket.io/?EIO=4&transport=polling&t=P9xMLKN&sid=x2SsY0A5XrgBX7JWAAAA HTTP/1.1" 200 157 0.000076
+2024-10-11 13:31:45 - INFO - x2SsY0A5XrgBX7JWAAAA: Upgrade to websocket successful
+2024-10-11 13:32:10 - INFO - x2SsY0A5XrgBX7JWAAAA: Sending packet PING data None
+2024-10-11 13:32:10 - INFO - x2SsY0A5XrgBX7JWAAAA: Received packet PONG data 
+2024-10-11 13:32:35 - INFO - x2SsY0A5XrgBX7JWAAAA: Sending packet PING data None
+2024-10-11 13:32:35 - INFO - x2SsY0A5XrgBX7JWAAAA: Received packet PONG data 
+2024-10-11 13:32:53 - INFO - Server initialized for gevent.
+2024-10-11 13:32:54 - INFO - Server initialized for gevent.
+2024-10-11 13:32:55 - INFO - hAi6UBNSg1puumQGAAAA: Sending packet OPEN data {'sid': 'hAi6UBNSg1puumQGAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:32:55 - INFO - 127.0.0.1 - - [2024-10-11 13:32:55] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcRi HTTP/1.1" 200 254 0.003161
+2024-10-11 13:32:55 - INFO - hAi6UBNSg1puumQGAAAA: Received packet MESSAGE data 0
+2024-10-11 13:32:55 - INFO - hAi6UBNSg1puumQGAAAA: Sending packet MESSAGE data 0{"sid":"ny2GZu-4DOcQop5DAAAB"}
+2024-10-11 13:32:55 - INFO - 127.0.0.1 - - [2024-10-11 13:32:55] "POST /socket.io/?EIO=4&transport=polling&t=P9xMcRr&sid=hAi6UBNSg1puumQGAAAA HTTP/1.1" 200 195 0.001418
+2024-10-11 13:32:55 - INFO - hAi6UBNSg1puumQGAAAA: Received request to upgrade to websocket
+2024-10-11 13:32:55 - INFO - 127.0.0.1 - - [2024-10-11 13:32:55] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcRu&sid=hAi6UBNSg1puumQGAAAA HTTP/1.1" 200 157 0.000094
+2024-10-11 13:32:55 - INFO - hAi6UBNSg1puumQGAAAA: Upgrade to websocket successful
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "GET / HTTP/1.1" 200 10305 0.015136
+2024-10-11 13:32:56 - INFO - pfS9EMwAOrm0pv7cAAAC: Sending packet OPEN data {'sid': 'pfS9EMwAOrm0pv7cAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcpX HTTP/1.1" 200 254 0.000868
+2024-10-11 13:32:56 - INFO - pfS9EMwAOrm0pv7cAAAC: Received packet MESSAGE data 0
+2024-10-11 13:32:56 - INFO - pfS9EMwAOrm0pv7cAAAC: Sending packet MESSAGE data 0{"sid":"gn5ZE_YoHlSIgiJVAAAD"}
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "POST /socket.io/?EIO=4&transport=polling&t=P9xMcpb&sid=pfS9EMwAOrm0pv7cAAAC HTTP/1.1" 200 195 0.002933
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcpe&sid=pfS9EMwAOrm0pv7cAAAC HTTP/1.1" 200 189 0.000074
+2024-10-11 13:32:56 - INFO - pfS9EMwAOrm0pv7cAAAC: Received request to upgrade to websocket
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcpw&sid=pfS9EMwAOrm0pv7cAAAC HTTP/1.1" 200 157 0.000434
+2024-10-11 13:32:56 - INFO - 127.0.0.1 - - [2024-10-11 13:32:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xMcq0&sid=pfS9EMwAOrm0pv7cAAAC HTTP/1.1" 200 157 0.000178
+2024-10-11 13:32:56 - INFO - pfS9EMwAOrm0pv7cAAAC: Upgrade to websocket successful
+2024-10-11 13:33:21 - INFO - pfS9EMwAOrm0pv7cAAAC: Sending packet PING data None
+2024-10-11 13:33:21 - INFO - pfS9EMwAOrm0pv7cAAAC: Received packet PONG data 
+2024-10-11 13:33:51 - INFO - Server initialized for gevent.
+2024-10-11 13:33:51 - INFO - Server initialized for gevent.
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "GET / HTTP/1.1" 200 10359 0.012005
+2024-10-11 13:33:54 - INFO - DfhafGHgNxT7gNxaAAAA: Sending packet OPEN data {'sid': 'DfhafGHgNxT7gNxaAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "GET /socket.io/?EIO=4&transport=polling&t=P9xMqtV HTTP/1.1" 200 254 0.005369
+2024-10-11 13:33:54 - INFO - DfhafGHgNxT7gNxaAAAA: Received packet MESSAGE data 0
+2024-10-11 13:33:54 - INFO - DfhafGHgNxT7gNxaAAAA: Sending packet MESSAGE data 0{"sid":"_rQXkWsuWIXwhNa_AAAB"}
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "POST /socket.io/?EIO=4&transport=polling&t=P9xMqu1&sid=DfhafGHgNxT7gNxaAAAA HTTP/1.1" 200 195 0.001984
+2024-10-11 13:33:54 - INFO - DfhafGHgNxT7gNxaAAAA: Received request to upgrade to websocket
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "GET /socket.io/?EIO=4&transport=polling&t=P9xMqu5&sid=DfhafGHgNxT7gNxaAAAA HTTP/1.1" 200 157 0.000074
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "GET /socket.io/?EIO=4&transport=polling&t=P9xMquC&sid=DfhafGHgNxT7gNxaAAAA HTTP/1.1" 200 157 0.000108
+2024-10-11 13:33:54 - INFO - 127.0.0.1 - - [2024-10-11 13:33:54] "GET /socket.io/?EIO=4&transport=polling&t=P9xMquH&sid=DfhafGHgNxT7gNxaAAAA HTTP/1.1" 200 157 0.000080
+2024-10-11 13:33:54 - INFO - DfhafGHgNxT7gNxaAAAA: Upgrade to websocket successful
+2024-10-11 13:34:19 - INFO - DfhafGHgNxT7gNxaAAAA: Sending packet PING data None
+2024-10-11 13:34:19 - INFO - DfhafGHgNxT7gNxaAAAA: Received packet PONG data 
+2024-10-11 13:34:44 - INFO - DfhafGHgNxT7gNxaAAAA: Sending packet PING data None
+2024-10-11 13:34:44 - INFO - DfhafGHgNxT7gNxaAAAA: Received packet PONG data 
+2024-10-11 13:35:04 - INFO - Server initialized for gevent.
+2024-10-11 13:35:05 - INFO - Server initialized for gevent.
+2024-10-11 13:35:07 - INFO - 127.0.0.1 - - [2024-10-11 13:35:07] "GET / HTTP/1.1" 200 10453 0.007167
+2024-10-11 13:35:07 - INFO - ytMoYxvu86oPIbTDAAAA: Sending packet OPEN data {'sid': 'ytMoYxvu86oPIbTDAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:35:07 - INFO - 127.0.0.1 - - [2024-10-11 13:35:07] "GET /socket.io/?EIO=4&transport=polling&t=P9xN6pH HTTP/1.1" 200 254 0.010471
+2024-10-11 13:35:07 - INFO - ytMoYxvu86oPIbTDAAAA: Received packet MESSAGE data 0
+2024-10-11 13:35:07 - INFO - ytMoYxvu86oPIbTDAAAA: Sending packet MESSAGE data 0{"sid":"cS3AMpsAptI47H3PAAAB"}
+2024-10-11 13:35:07 - INFO - 127.0.0.1 - - [2024-10-11 13:35:07] "POST /socket.io/?EIO=4&transport=polling&t=P9xN6pX&sid=ytMoYxvu86oPIbTDAAAA HTTP/1.1" 200 195 0.001616
+2024-10-11 13:35:07 - INFO - ytMoYxvu86oPIbTDAAAA: Received request to upgrade to websocket
+2024-10-11 13:35:07 - INFO - 127.0.0.1 - - [2024-10-11 13:35:07] "GET /socket.io/?EIO=4&transport=polling&t=P9xN6pb&sid=ytMoYxvu86oPIbTDAAAA HTTP/1.1" 200 157 0.000070
+2024-10-11 13:35:07 - INFO - 127.0.0.1 - - [2024-10-11 13:35:07] "GET /socket.io/?EIO=4&transport=polling&t=P9xN6pe&sid=ytMoYxvu86oPIbTDAAAA HTTP/1.1" 200 157 0.000075
+2024-10-11 13:35:07 - INFO - ytMoYxvu86oPIbTDAAAA: Upgrade to websocket successful
+2024-10-11 13:35:32 - INFO - ytMoYxvu86oPIbTDAAAA: Sending packet PING data None
+2024-10-11 13:35:32 - INFO - ytMoYxvu86oPIbTDAAAA: Received packet PONG data 
+2024-10-11 13:36:12 - INFO - Server initialized for gevent.
+2024-10-11 13:36:13 - INFO - Server initialized for gevent.
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "GET / HTTP/1.1" 200 10415 0.007592
+2024-10-11 13:36:15 - INFO - xUw_yc4gHJlQKAxTAAAA: Sending packet OPEN data {'sid': 'xUw_yc4gHJlQKAxTAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xNNPD HTTP/1.1" 200 254 0.003248
+2024-10-11 13:36:15 - INFO - xUw_yc4gHJlQKAxTAAAA: Received packet MESSAGE data 0
+2024-10-11 13:36:15 - INFO - xUw_yc4gHJlQKAxTAAAA: Sending packet MESSAGE data 0{"sid":"M43f9ZvfN9RF_-mFAAAB"}
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "POST /socket.io/?EIO=4&transport=polling&t=P9xNNPO&sid=xUw_yc4gHJlQKAxTAAAA HTTP/1.1" 200 195 0.008845
+2024-10-11 13:36:15 - INFO - xUw_yc4gHJlQKAxTAAAA: Received request to upgrade to websocket
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xNNPS&sid=xUw_yc4gHJlQKAxTAAAA HTTP/1.1" 200 157 0.000070
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xNNQ7&sid=xUw_yc4gHJlQKAxTAAAA HTTP/1.1" 200 157 0.000411
+2024-10-11 13:36:15 - INFO - 127.0.0.1 - - [2024-10-11 13:36:15] "GET /socket.io/?EIO=4&transport=polling&t=P9xNNQI&sid=xUw_yc4gHJlQKAxTAAAA HTTP/1.1" 200 157 0.000394
+2024-10-11 13:36:15 - INFO - xUw_yc4gHJlQKAxTAAAA: Upgrade to websocket successful
+2024-10-11 14:21:27 - INFO - Server initialized for gevent.
+2024-10-11 14:21:28 - INFO - Server initialized for gevent.
+2024-10-11 14:21:33 - INFO - yecgXKdTriP0enTBAAAA: Sending packet OPEN data {'sid': 'yecgXKdTriP0enTBAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXkpo HTTP/1.1" 200 254 0.004705
+2024-10-11 14:21:33 - INFO - yecgXKdTriP0enTBAAAA: Received packet MESSAGE data 0
+2024-10-11 14:21:33 - INFO - yecgXKdTriP0enTBAAAA: Sending packet MESSAGE data 0{"sid":"5LF0tlrVTGH1gHNOAAAB"}
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "POST /socket.io/?EIO=4&transport=polling&t=P9xXkq5&sid=yecgXKdTriP0enTBAAAA HTTP/1.1" 200 195 0.002174
+2024-10-11 14:21:33 - INFO - yecgXKdTriP0enTBAAAA: Received request to upgrade to websocket
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXkqA&sid=yecgXKdTriP0enTBAAAA HTTP/1.1" 200 157 0.000102
+2024-10-11 14:21:33 - INFO - yecgXKdTriP0enTBAAAA: Upgrade to websocket successful
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET / HTTP/1.1" 200 10456 0.013703
+2024-10-11 14:21:33 - INFO - wTwAqtd9s6KoRlgPAAAC: Sending packet OPEN data {'sid': 'wTwAqtd9s6KoRlgPAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXkzx HTTP/1.1" 200 254 0.003200
+2024-10-11 14:21:33 - INFO - wTwAqtd9s6KoRlgPAAAC: Received packet MESSAGE data 0
+2024-10-11 14:21:33 - INFO - wTwAqtd9s6KoRlgPAAAC: Sending packet MESSAGE data 0{"sid":"ScoWA0kKsw5wFuYBAAAD"}
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "POST /socket.io/?EIO=4&transport=polling&t=P9xXk-6&sid=wTwAqtd9s6KoRlgPAAAC HTTP/1.1" 200 195 0.002383
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXk-9&sid=wTwAqtd9s6KoRlgPAAAC HTTP/1.1" 200 189 0.000178
+2024-10-11 14:21:33 - INFO - wTwAqtd9s6KoRlgPAAAC: Received request to upgrade to websocket
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXk-P&sid=wTwAqtd9s6KoRlgPAAAC HTTP/1.1" 200 157 0.000107
+2024-10-11 14:21:33 - INFO - 127.0.0.1 - - [2024-10-11 14:21:33] "GET /socket.io/?EIO=4&transport=polling&t=P9xXk-U&sid=wTwAqtd9s6KoRlgPAAAC HTTP/1.1" 200 157 0.000089
+2024-10-11 14:21:33 - INFO - wTwAqtd9s6KoRlgPAAAC: Upgrade to websocket successful
+2024-10-11 14:21:58 - INFO - wTwAqtd9s6KoRlgPAAAC: Sending packet PING data None
+2024-10-11 14:21:58 - INFO - wTwAqtd9s6KoRlgPAAAC: Received packet PONG data 
+2024-10-11 14:22:22 - INFO - Server initialized for gevent.
+2024-10-11 14:22:23 - INFO - Server initialized for gevent.
+2024-10-11 14:22:23 - INFO - M5XnaMT4Us7X-XuXAAAA: Sending packet OPEN data {'sid': 'M5XnaMT4Us7X-XuXAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:22:23 - INFO - 127.0.0.1 - - [2024-10-11 14:22:23] "GET /socket.io/?EIO=4&transport=polling&t=P9xXw-W HTTP/1.1" 200 254 0.000770
+2024-10-11 14:22:23 - INFO - M5XnaMT4Us7X-XuXAAAA: Received packet MESSAGE data 0
+2024-10-11 14:22:23 - INFO - M5XnaMT4Us7X-XuXAAAA: Sending packet MESSAGE data 0{"sid":"TpDjqoiZebPi01CTAAAB"}
+2024-10-11 14:22:23 - INFO - 127.0.0.1 - - [2024-10-11 14:22:23] "POST /socket.io/?EIO=4&transport=polling&t=P9xXx1A&sid=M5XnaMT4Us7X-XuXAAAA HTTP/1.1" 200 195 0.001078
+2024-10-11 14:22:23 - INFO - M5XnaMT4Us7X-XuXAAAA: Received request to upgrade to websocket
+2024-10-11 14:22:23 - INFO - 127.0.0.1 - - [2024-10-11 14:22:23] "GET /socket.io/?EIO=4&transport=polling&t=P9xXx1W&sid=M5XnaMT4Us7X-XuXAAAA HTTP/1.1" 200 157 0.000088
+2024-10-11 14:22:23 - INFO - 127.0.0.1 - - [2024-10-11 14:22:23] "GET /socket.io/?EIO=4&transport=polling&t=P9xXx1b&sid=M5XnaMT4Us7X-XuXAAAA HTTP/1.1" 200 157 0.000069
+2024-10-11 14:22:23 - INFO - M5XnaMT4Us7X-XuXAAAA: Upgrade to websocket successful
+2024-10-11 14:22:25 - INFO - 127.0.0.1 - - [2024-10-11 14:22:25] "GET / HTTP/1.1" 200 10488 0.010630
+2024-10-11 14:22:25 - INFO - Juk92ReW6WOOQ2T6AAAC: Sending packet OPEN data {'sid': 'Juk92ReW6WOOQ2T6AAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:22:25 - INFO - 127.0.0.1 - - [2024-10-11 14:22:25] "GET /socket.io/?EIO=4&transport=polling&t=P9xXxaO HTTP/1.1" 200 254 0.000928
+2024-10-11 14:22:25 - INFO - Juk92ReW6WOOQ2T6AAAC: Received packet MESSAGE data 0
+2024-10-11 14:22:25 - INFO - Juk92ReW6WOOQ2T6AAAC: Sending packet MESSAGE data 0{"sid":"GrXk7HEiZ1-7VkqcAAAD"}
+2024-10-11 14:22:25 - INFO - 127.0.0.1 - - [2024-10-11 14:22:25] "POST /socket.io/?EIO=4&transport=polling&t=P9xXxai&sid=Juk92ReW6WOOQ2T6AAAC HTTP/1.1" 200 195 0.003990
+2024-10-11 14:22:25 - INFO - Juk92ReW6WOOQ2T6AAAC: Received request to upgrade to websocket
+2024-10-11 14:22:25 - INFO - 127.0.0.1 - - [2024-10-11 14:22:25] "GET /socket.io/?EIO=4&transport=polling&t=P9xXxal&sid=Juk92ReW6WOOQ2T6AAAC HTTP/1.1" 200 157 0.000343
+2024-10-11 14:22:25 - INFO - 127.0.0.1 - - [2024-10-11 14:22:25] "GET /socket.io/?EIO=4&transport=polling&t=P9xXxav&sid=Juk92ReW6WOOQ2T6AAAC HTTP/1.1" 200 157 0.000087
+2024-10-11 14:22:25 - INFO - Juk92ReW6WOOQ2T6AAAC: Upgrade to websocket successful
+2024-10-11 14:22:50 - INFO - Server initialized for gevent.
+2024-10-11 14:22:50 - INFO - Server initialized for gevent.
+2024-10-11 14:22:52 - INFO - 127.0.0.1 - - [2024-10-11 14:22:52] "GET / HTTP/1.1" 200 10415 0.007484
+2024-10-11 14:22:52 - INFO - IBPxS2Fd1yVFoAZrAAAA: Sending packet OPEN data {'sid': 'IBPxS2Fd1yVFoAZrAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:22:52 - INFO - 127.0.0.1 - - [2024-10-11 14:22:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xY2FP HTTP/1.1" 200 254 0.003129
+2024-10-11 14:22:52 - INFO - IBPxS2Fd1yVFoAZrAAAA: Received packet MESSAGE data 0
+2024-10-11 14:22:52 - INFO - IBPxS2Fd1yVFoAZrAAAA: Sending packet MESSAGE data 0{"sid":"X1iiPPxP3EL2rbDRAAAB"}
+2024-10-11 14:22:52 - INFO - 127.0.0.1 - - [2024-10-11 14:22:52] "POST /socket.io/?EIO=4&transport=polling&t=P9xY2Fi&sid=IBPxS2Fd1yVFoAZrAAAA HTTP/1.1" 200 195 0.003428
+2024-10-11 14:22:52 - INFO - IBPxS2Fd1yVFoAZrAAAA: Received request to upgrade to websocket
+2024-10-11 14:22:52 - INFO - 127.0.0.1 - - [2024-10-11 14:22:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xY2Fl&sid=IBPxS2Fd1yVFoAZrAAAA HTTP/1.1" 200 157 0.000067
+2024-10-11 14:22:52 - INFO - IBPxS2Fd1yVFoAZrAAAA: Upgrade to websocket successful
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /run-script-stream? HTTP/1.1" 302 322 0.001323
+2024-10-11 14:23:06 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:06 - INFO - Starting script...
+2024-10-11 14:23:06 - INFO - Connecting to Plex server at http://192.168.31.24:32400
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET / HTTP/1.1" 200 10415 0.003904
+2024-10-11 14:23:06 - INFO - Connected to Plex server successfully.
+2024-10-11 14:23:06 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet OPEN data {'sid': 'xkgCyj0MUrYSH2rUAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xY5bp HTTP/1.1" 200 254 0.000676
+2024-10-11 14:23:06 - INFO - xkgCyj0MUrYSH2rUAAAC: Received packet MESSAGE data 0
+2024-10-11 14:23:06 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 0{"sid":"F2oTLmXkcgG6gC-GAAAD"}
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "POST /socket.io/?EIO=4&transport=polling&t=P9xY5bu&sid=xkgCyj0MUrYSH2rUAAAC HTTP/1.1" 200 195 0.001448
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xY5bx&sid=xkgCyj0MUrYSH2rUAAAC HTTP/1.1" 200 189 0.000067
+2024-10-11 14:23:06 - INFO - xkgCyj0MUrYSH2rUAAAC: Received request to upgrade to websocket
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xY5cC&sid=xkgCyj0MUrYSH2rUAAAC HTTP/1.1" 200 157 0.000098
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xY5cG&sid=xkgCyj0MUrYSH2rUAAAC HTTP/1.1" 200 157 0.000073
+2024-10-11 14:23:06 - INFO - 127.0.0.1 - - [2024-10-11 14:23:06] "GET /socket.io/?EIO=4&transport=polling&t=P9xY5cK&sid=xkgCyj0MUrYSH2rUAAAC HTTP/1.1" 200 157 0.000184
+2024-10-11 14:23:06 - INFO - xkgCyj0MUrYSH2rUAAAC: Upgrade to websocket successful
+2024-10-11 14:23:09 - INFO - Retrieved 185 movies from Plex.
+2024-10-11 14:23:09 - INFO - Found 185 movies in your Plex library.
+2024-10-11 14:23:09 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:09 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Found 185 movies in your Plex library."}]
+2024-10-11 14:23:12 - INFO - Processing: Anyone But You | Plex Rating: 5.0
+2024-10-11 14:23:12 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:12 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Anyone But You | Plex Rating: 5.0"}]
+2024-10-11 14:23:12 - INFO - Processing: Babes | Plex Rating: 5.0
+2024-10-11 14:23:12 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:12 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Babes | Plex Rating: 5.0"}]
+2024-10-11 14:23:13 - INFO - Processing: Blind Date | Plex Rating: 4.0
+2024-10-11 14:23:13 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:13 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Blind Date | Plex Rating: 4.0"}]
+2024-10-11 14:23:13 - INFO - Processing: Chinese Puzzle | Plex Rating: 6.0
+2024-10-11 14:23:13 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:13 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Chinese Puzzle | Plex Rating: 6.0"}]
+2024-10-11 14:23:14 - INFO - Processing: Dumb Money | Plex Rating: 8.0
+2024-10-11 14:23:14 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:14 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Dumb Money | Plex Rating: 8.0"}]
+2024-10-11 14:23:14 - INFO - Processing: Enormous | Plex Rating: 7.0
+2024-10-11 14:23:14 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:14 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Enormous | Plex Rating: 7.0"}]
+2024-10-11 14:23:14 - INFO - Processing: The Fall Guy | Plex Rating: 7.0
+2024-10-11 14:23:14 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:14 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: The Fall Guy | Plex Rating: 7.0"}]
+2024-10-11 14:23:15 - INFO - Processing: Game Changers | Plex Rating: 8.0
+2024-10-11 14:23:15 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:15 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Game Changers | Plex Rating: 8.0"}]
+2024-10-11 14:23:15 - INFO - Processing: Ghostbusters: Frozen Empire | Plex Rating: 4.0
+2024-10-11 14:23:15 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:15 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Ghostbusters: Frozen Empire | Plex Rating: 4.0"}]
+2024-10-11 14:23:15 - INFO - Processing: Gloria Bell | Plex Rating: 7.0
+2024-10-11 14:23:15 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:15 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Gloria Bell | Plex Rating: 7.0"}]
+2024-10-11 14:23:15 - INFO - Processing: Godzilla Minus One | Plex Rating: 8.0
+2024-10-11 14:23:15 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:15 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Godzilla Minus One | Plex Rating: 8.0"}]
+2024-10-11 14:23:15 - INFO - Processing: Grand Paris | Plex Rating: 8.0
+2024-10-11 14:23:15 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:15 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Grand Paris | Plex Rating: 8.0"}]
+2024-10-11 14:23:16 - INFO - Processing: Green Book | Plex Rating: 9.0
+2024-10-11 14:23:16 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:16 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Green Book | Plex Rating: 9.0"}]
+2024-10-11 14:23:16 - INFO - Processing: The Green Hornet | Plex Rating: 5.0
+2024-10-11 14:23:16 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:16 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: The Green Hornet | Plex Rating: 5.0"}]
+2024-10-11 14:23:16 - INFO - Processing: Hit Man | Plex Rating: 8.0
+2024-10-11 14:23:16 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:16 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Hit Man | Plex Rating: 8.0"}]
+2024-10-11 14:23:16 - INFO - Processing: In a World... | Plex Rating: 8.0
+2024-10-11 14:23:16 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:16 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: In a World... | Plex Rating: 8.0"}]
+2024-10-11 14:23:17 - INFO - Processing: Inside Out | Plex Rating: 10.0
+2024-10-11 14:23:17 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:17 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Inside Out | Plex Rating: 10.0"}]
+2024-10-11 14:23:17 - INFO - Processing: Jodorowsky's Dune | Plex Rating: 10.0
+2024-10-11 14:23:17 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:17 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Jodorowsky's Dune | Plex Rating: 10.0"}]
+2024-10-11 14:23:17 - INFO - Processing: Keep an Eye Out | Plex Rating: 6.0
+2024-10-11 14:23:17 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:17 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Keep an Eye Out | Plex Rating: 6.0"}]
+2024-10-11 14:23:17 - INFO - Processing: Knights of Sidonia: Love Woven in the Stars | Plex Rating: 6.0
+2024-10-11 14:23:17 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:17 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Knights of Sidonia: Love Woven in the Stars | Plex Rating: 6.0"}]
+2024-10-11 14:23:18 - INFO - Processing: Mandibles | Plex Rating: 7.0
+2024-10-11 14:23:18 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:18 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Mandibles | Plex Rating: 7.0"}]
+2024-10-11 14:23:18 - INFO - Processing: Mars Express | Plex Rating: 9.0
+2024-10-11 14:23:18 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:18 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Mars Express | Plex Rating: 9.0"}]
+2024-10-11 14:23:18 - INFO - Processing: May December | Plex Rating: 8.0
+2024-10-11 14:23:18 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:18 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: May December | Plex Rating: 8.0"}]
+2024-10-11 14:23:19 - INFO - Processing: Obvious Child | Plex Rating: 8.0
+2024-10-11 14:23:19 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:19 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Obvious Child | Plex Rating: 8.0"}]
+2024-10-11 14:23:19 - INFO - Processing: Safety Not Guaranteed | Plex Rating: 8.0
+2024-10-11 14:23:19 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:19 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Safety Not Guaranteed | Plex Rating: 8.0"}]
+2024-10-11 14:23:20 - INFO - Processing: Scrapper | Plex Rating: 9.0
+2024-10-11 14:23:20 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:20 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Scrapper | Plex Rating: 9.0"}]
+2024-10-11 14:23:21 - INFO - Attempting to add movies to Notion...
+2024-10-11 14:23:21 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:21 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Attempting to add movies to Notion..."}]
+2024-10-11 14:23:21 - INFO - Payload being sent: [{'title': 'Anyone But You', 'rating': 5.0}, {'title': 'Babes', 'rating': 5.0}, {'title': 'Blind Date', 'rating': 4.0}, {'title': 'Chinese Puzzle', 'rating': 6.0}, {'title': 'Dumb Money', 'rating': 8.0}, {'title': 'Enormous', 'rating': 7.0}, {'title': 'The Fall Guy', 'rating': 7.0}, {'title': 'Game Changers', 'rating': 8.0}, {'title': 'Ghostbusters: Frozen Empire', 'rating': 4.0}, {'title': 'Gloria Bell', 'rating': 7.0}, {'title': 'Godzilla Minus One', 'rating': 8.0}, {'title': 'Grand Paris', 'rating': 8.0}, {'title': 'Green Book', 'rating': 9.0}, {'title': 'The Green Hornet', 'rating': 5.0}, {'title': 'Hit Man', 'rating': 8.0}, {'title': 'In a World...', 'rating': 8.0}, {'title': 'Inside Out', 'rating': 10.0}, {'title': "Jodorowsky's Dune", 'rating': 10.0}, {'title': 'Keep an Eye Out', 'rating': 6.0}, {'title': 'Knights of Sidonia: Love Woven in the Stars', 'rating': 6.0}, {'title': 'Mandibles', 'rating': 7.0}, {'title': 'Mars Express', 'rating': 9.0}, {'title': 'May December', 'rating': 8.0}, {'title': 'Obvious Child', 'rating': 8.0}, {'title': 'Safety Not Guaranteed', 'rating': 8.0}, {'title': 'Scrapper', 'rating': 9.0}]
+2024-10-11 14:23:21 - INFO - Checking if 'Anyone But You' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Babes' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Blind Date' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Chinese Puzzle' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Dumb Money' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Enormous' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'The Fall Guy' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Game Changers' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Ghostbusters: Frozen Empire' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Gloria Bell' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Godzilla Minus One' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Grand Paris' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Green Book' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'The Green Hornet' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Hit Man' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'In a World...' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Inside Out' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Jodorowsky's Dune' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Keep an Eye Out' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Knights of Sidonia: Love Woven in the Stars' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Mandibles' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Mars Express' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'May December' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Obvious Child' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Safety Not Guaranteed' exists in Notion...
+2024-10-11 14:23:21 - INFO - Checking if 'Scrapper' exists in Notion...
+2024-10-11 14:23:21 - INFO - Movie 'Mandibles' already exists in Notion.
+2024-10-11 14:23:21 - INFO - Movie 'Mars Express' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'The Fall Guy' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Grand Paris' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Inside Out' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Jodorowsky's Dune' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Dumb Money' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'In a World...' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Enormous' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Obvious Child' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Babes' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Scrapper' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Keep an Eye Out' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Green Book' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Chinese Puzzle' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Blind Date' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Gloria Bell' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'May December' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'The Green Hornet' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Hit Man' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Game Changers' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Safety Not Guaranteed' already exists in Notion.
+2024-10-11 14:23:22 - INFO - Movie 'Knights of Sidonia: Love Woven in the Stars' already exists in Notion.
+2024-10-11 14:23:25 - INFO - Movie 'Anyone But You' already exists in Notion.
+2024-10-11 14:23:25 - INFO - Movie 'Ghostbusters: Frozen Empire' already exists in Notion.
+2024-10-11 14:23:27 - INFO - Movie 'Godzilla Minus One' already exists in Notion.
+2024-10-11 14:23:27 - INFO - No new movies to add to Notion.
+2024-10-11 14:23:27 - INFO - Notion API Response: No new movies to add.
+2024-10-11 14:23:27 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:27 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Notion API Response: No new movies to add."}]
+2024-10-11 14:23:27 - INFO - Movies successfully added to Notion.
+2024-10-11 14:23:27 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:27 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Movies successfully added to Notion."}]
+2024-10-11 14:23:27 - INFO - Script finished at 2024-10-11 14:23:27.443736
+2024-10-11 14:23:27 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:23:27 - INFO - xkgCyj0MUrYSH2rUAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Script finished at 2024-10-11 14:23:27.443736"}]
+2024-10-11 14:24:50 - INFO - Server initialized for gevent.
+2024-10-11 14:24:50 - INFO - Server initialized for gevent.
+2024-10-11 14:24:52 - INFO - 127.0.0.1 - - [2024-10-11 14:24:52] "GET / HTTP/1.1" 200 10407 0.011229
+2024-10-11 14:24:52 - INFO - jJDpZTNBuG0a2I0QAAAA: Sending packet OPEN data {'sid': 'jJDpZTNBuG0a2I0QAAAA', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:24:52 - INFO - 127.0.0.1 - - [2024-10-11 14:24:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xYVQn HTTP/1.1" 200 254 0.004442
+2024-10-11 14:24:52 - INFO - jJDpZTNBuG0a2I0QAAAA: Received packet MESSAGE data 0
+2024-10-11 14:24:52 - INFO - jJDpZTNBuG0a2I0QAAAA: Sending packet MESSAGE data 0{"sid":"4FSE-hapLKfC8q-MAAAB"}
+2024-10-11 14:24:52 - INFO - 127.0.0.1 - - [2024-10-11 14:24:52] "POST /socket.io/?EIO=4&transport=polling&t=P9xYVR6&sid=jJDpZTNBuG0a2I0QAAAA HTTP/1.1" 200 195 0.001612
+2024-10-11 14:24:52 - INFO - jJDpZTNBuG0a2I0QAAAA: Received request to upgrade to websocket
+2024-10-11 14:24:52 - INFO - 127.0.0.1 - - [2024-10-11 14:24:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xYVR9&sid=jJDpZTNBuG0a2I0QAAAA HTTP/1.1" 200 157 0.000086
+2024-10-11 14:24:52 - INFO - 127.0.0.1 - - [2024-10-11 14:24:52] "GET /socket.io/?EIO=4&transport=polling&t=P9xYVRH&sid=jJDpZTNBuG0a2I0QAAAA HTTP/1.1" 200 157 0.000091
+2024-10-11 14:24:52 - INFO - jJDpZTNBuG0a2I0QAAAA: Upgrade to websocket successful
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /run-script-stream? HTTP/1.1" 302 322 0.003427
+2024-10-11 14:24:56 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:24:56 - INFO - Starting script...
+2024-10-11 14:24:56 - INFO - Connecting to Plex server at http://192.168.31.24:32400
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET / HTTP/1.1" 200 10407 0.003836
+2024-10-11 14:24:56 - INFO - Connected to Plex server successfully.
+2024-10-11 14:24:56 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet OPEN data {'sid': 'OIbAvHYPPWpPma1JAAAC', 'upgrades': ['websocket'], 'pingTimeout': 20000, 'pingInterval': 25000}
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xYWT8 HTTP/1.1" 200 254 0.000652
+2024-10-11 14:24:56 - INFO - OIbAvHYPPWpPma1JAAAC: Received packet MESSAGE data 0
+2024-10-11 14:24:56 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 0{"sid":"JHLhB3t9tHAPgk4kAAAD"}
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "POST /socket.io/?EIO=4&transport=polling&t=P9xYWTE&sid=OIbAvHYPPWpPma1JAAAC HTTP/1.1" 200 195 0.003645
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xYWTH&sid=OIbAvHYPPWpPma1JAAAC HTTP/1.1" 200 189 0.000226
+2024-10-11 14:24:56 - INFO - OIbAvHYPPWpPma1JAAAC: Received request to upgrade to websocket
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xYWTY&sid=OIbAvHYPPWpPma1JAAAC HTTP/1.1" 200 157 0.000101
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xYWTc&sid=OIbAvHYPPWpPma1JAAAC HTTP/1.1" 200 157 0.000089
+2024-10-11 14:24:56 - INFO - 127.0.0.1 - - [2024-10-11 14:24:56] "GET /socket.io/?EIO=4&transport=polling&t=P9xYWTg&sid=OIbAvHYPPWpPma1JAAAC HTTP/1.1" 200 157 0.000104
+2024-10-11 14:24:56 - INFO - OIbAvHYPPWpPma1JAAAC: Upgrade to websocket successful
+2024-10-11 14:24:57 - INFO - Retrieved 185 movies from Plex.
+2024-10-11 14:24:57 - INFO - Found 185 movies in your Plex library.
+2024-10-11 14:24:57 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:24:57 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Found 185 movies in your Plex library."}]
+2024-10-11 14:24:59 - INFO - Processing: Anyone But You | Plex Rating: 5.0
+2024-10-11 14:24:59 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:24:59 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Anyone But You | Plex Rating: 5.0"}]
+2024-10-11 14:24:59 - INFO - Processing: Babes | Plex Rating: 5.0
+2024-10-11 14:24:59 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:24:59 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Babes | Plex Rating: 5.0"}]
+2024-10-11 14:25:00 - INFO - Processing: Blind Date | Plex Rating: 4.0
+2024-10-11 14:25:00 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:00 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Blind Date | Plex Rating: 4.0"}]
+2024-10-11 14:25:00 - INFO - Processing: Chinese Puzzle | Plex Rating: 6.0
+2024-10-11 14:25:00 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:00 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Chinese Puzzle | Plex Rating: 6.0"}]
+2024-10-11 14:25:00 - INFO - Processing: Dumb Money | Plex Rating: 8.0
+2024-10-11 14:25:00 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:00 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Dumb Money | Plex Rating: 8.0"}]
+2024-10-11 14:25:01 - INFO - Processing: Enormous | Plex Rating: 7.0
+2024-10-11 14:25:01 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:01 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Enormous | Plex Rating: 7.0"}]
+2024-10-11 14:25:01 - INFO - Processing: The Fall Guy | Plex Rating: 7.0
+2024-10-11 14:25:01 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:01 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: The Fall Guy | Plex Rating: 7.0"}]
+2024-10-11 14:25:01 - INFO - Processing: Game Changers | Plex Rating: 8.0
+2024-10-11 14:25:01 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:01 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Game Changers | Plex Rating: 8.0"}]
+2024-10-11 14:25:01 - INFO - Processing: Ghostbusters: Frozen Empire | Plex Rating: 4.0
+2024-10-11 14:25:01 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:01 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Ghostbusters: Frozen Empire | Plex Rating: 4.0"}]
+2024-10-11 14:25:01 - INFO - Processing: Gloria Bell | Plex Rating: 7.0
+2024-10-11 14:25:01 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:01 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Gloria Bell | Plex Rating: 7.0"}]
+2024-10-11 14:25:02 - INFO - Processing: Godzilla Minus One | Plex Rating: 8.0
+2024-10-11 14:25:02 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:02 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Godzilla Minus One | Plex Rating: 8.0"}]
+2024-10-11 14:25:02 - INFO - Processing: Grand Paris | Plex Rating: 8.0
+2024-10-11 14:25:02 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:02 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Grand Paris | Plex Rating: 8.0"}]
+2024-10-11 14:25:02 - INFO - Processing: Green Book | Plex Rating: 9.0
+2024-10-11 14:25:02 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:02 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Green Book | Plex Rating: 9.0"}]
+2024-10-11 14:25:02 - INFO - Processing: The Green Hornet | Plex Rating: 5.0
+2024-10-11 14:25:02 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:02 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: The Green Hornet | Plex Rating: 5.0"}]
+2024-10-11 14:25:02 - INFO - Processing: Hit Man | Plex Rating: 8.0
+2024-10-11 14:25:02 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:02 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Hit Man | Plex Rating: 8.0"}]
+2024-10-11 14:25:03 - INFO - Processing: In a World... | Plex Rating: 8.0
+2024-10-11 14:25:03 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:03 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: In a World... | Plex Rating: 8.0"}]
+2024-10-11 14:25:03 - INFO - Processing: Inside Out | Plex Rating: 10.0
+2024-10-11 14:25:03 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:03 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Inside Out | Plex Rating: 10.0"}]
+2024-10-11 14:25:03 - INFO - Processing: Jodorowsky's Dune | Plex Rating: 10.0
+2024-10-11 14:25:03 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:03 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Jodorowsky's Dune | Plex Rating: 10.0"}]
+2024-10-11 14:25:03 - INFO - Processing: Keep an Eye Out | Plex Rating: 6.0
+2024-10-11 14:25:03 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:03 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Keep an Eye Out | Plex Rating: 6.0"}]
+2024-10-11 14:25:03 - INFO - Processing: Knights of Sidonia: Love Woven in the Stars | Plex Rating: 6.0
+2024-10-11 14:25:03 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:03 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Knights of Sidonia: Love Woven in the Stars | Plex Rating: 6.0"}]
+2024-10-11 14:25:04 - INFO - Processing: Mandibles | Plex Rating: 7.0
+2024-10-11 14:25:04 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:04 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Mandibles | Plex Rating: 7.0"}]
+2024-10-11 14:25:04 - INFO - Processing: Mars Express | Plex Rating: 9.0
+2024-10-11 14:25:04 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:04 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Mars Express | Plex Rating: 9.0"}]
+2024-10-11 14:25:04 - INFO - Processing: May December | Plex Rating: 8.0
+2024-10-11 14:25:04 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:04 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: May December | Plex Rating: 8.0"}]
+2024-10-11 14:25:05 - INFO - Processing: Obvious Child | Plex Rating: 8.0
+2024-10-11 14:25:05 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:05 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Obvious Child | Plex Rating: 8.0"}]
+2024-10-11 14:25:05 - INFO - Processing: Safety Not Guaranteed | Plex Rating: 8.0
+2024-10-11 14:25:05 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:05 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Safety Not Guaranteed | Plex Rating: 8.0"}]
+2024-10-11 14:25:06 - INFO - Processing: Scrapper | Plex Rating: 9.0
+2024-10-11 14:25:06 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:06 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Processing: Scrapper | Plex Rating: 9.0"}]
+2024-10-11 14:25:07 - INFO - Attempting to add movies to Notion...
+2024-10-11 14:25:07 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:07 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Attempting to add movies to Notion..."}]
+2024-10-11 14:25:07 - INFO - Payload being sent: [{'title': 'Anyone But You', 'rating': 5.0}, {'title': 'Babes', 'rating': 5.0}, {'title': 'Blind Date', 'rating': 4.0}, {'title': 'Chinese Puzzle', 'rating': 6.0}, {'title': 'Dumb Money', 'rating': 8.0}, {'title': 'Enormous', 'rating': 7.0}, {'title': 'The Fall Guy', 'rating': 7.0}, {'title': 'Game Changers', 'rating': 8.0}, {'title': 'Ghostbusters: Frozen Empire', 'rating': 4.0}, {'title': 'Gloria Bell', 'rating': 7.0}, {'title': 'Godzilla Minus One', 'rating': 8.0}, {'title': 'Grand Paris', 'rating': 8.0}, {'title': 'Green Book', 'rating': 9.0}, {'title': 'The Green Hornet', 'rating': 5.0}, {'title': 'Hit Man', 'rating': 8.0}, {'title': 'In a World...', 'rating': 8.0}, {'title': 'Inside Out', 'rating': 10.0}, {'title': "Jodorowsky's Dune", 'rating': 10.0}, {'title': 'Keep an Eye Out', 'rating': 6.0}, {'title': 'Knights of Sidonia: Love Woven in the Stars', 'rating': 6.0}, {'title': 'Mandibles', 'rating': 7.0}, {'title': 'Mars Express', 'rating': 9.0}, {'title': 'May December', 'rating': 8.0}, {'title': 'Obvious Child', 'rating': 8.0}, {'title': 'Safety Not Guaranteed', 'rating': 8.0}, {'title': 'Scrapper', 'rating': 9.0}]
+2024-10-11 14:25:07 - INFO - Checking if 'Anyone But You' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Babes' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Blind Date' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Chinese Puzzle' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Dumb Money' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Enormous' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'The Fall Guy' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Game Changers' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Ghostbusters: Frozen Empire' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Gloria Bell' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Godzilla Minus One' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Grand Paris' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Green Book' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'The Green Hornet' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Hit Man' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'In a World...' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Inside Out' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Jodorowsky's Dune' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Keep an Eye Out' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Knights of Sidonia: Love Woven in the Stars' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Mandibles' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Mars Express' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'May December' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Obvious Child' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Safety Not Guaranteed' exists in Notion...
+2024-10-11 14:25:07 - INFO - Checking if 'Scrapper' exists in Notion...
+2024-10-11 14:25:07 - INFO - Movie 'Babes' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'Enormous' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'Ghostbusters: Frozen Empire' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'In a World...' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'Scrapper' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'Keep an Eye Out' already exists in Notion.
+2024-10-11 14:25:07 - INFO - Movie 'Green Book' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Godzilla Minus One' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Safety Not Guaranteed' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Jodorowsky's Dune' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Chinese Puzzle' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Dumb Money' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Hit Man' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Inside Out' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'The Green Hornet' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Blind Date' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'May December' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Obvious Child' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Game Changers' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Grand Paris' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Anyone But You' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'The Fall Guy' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Knights of Sidonia: Love Woven in the Stars' already exists in Notion.
+2024-10-11 14:25:08 - INFO - Movie 'Mars Express' already exists in Notion.
+2024-10-11 14:25:09 - INFO - Movie 'Mandibles' already exists in Notion.
+2024-10-11 14:25:10 - INFO - Movie 'Gloria Bell' already exists in Notion.
+2024-10-11 14:25:10 - INFO - No new movies to add to Notion.
+2024-10-11 14:25:10 - INFO - Notion API Response: No new movies to add.
+2024-10-11 14:25:10 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:10 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Notion API Response: No new movies to add."}]
+2024-10-11 14:25:10 - INFO - Movies successfully added to Notion.
+2024-10-11 14:25:10 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:10 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Movies successfully added to Notion."}]
+2024-10-11 14:25:10 - INFO - Script finished at 2024-10-11 14:25:10.036546
+2024-10-11 14:25:10 - INFO - emitting event "log_update" to all [/]
+2024-10-11 14:25:10 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet MESSAGE data 2["log_update",{"log_entry":"Script finished at 2024-10-11 14:25:10.036546"}]
+2024-10-11 14:25:21 - INFO - OIbAvHYPPWpPma1JAAAC: Sending packet PING data None
+2024-10-11 14:25:21 - INFO - OIbAvHYPPWpPma1JAAAC: Received packet PONG data 
