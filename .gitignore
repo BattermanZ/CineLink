@@ -10,7 +10,7 @@ __pycache__/
 .env
 
 # Ignore logs
-logs/
+logs.txt
 *.log
 
 # Ignore database
@@ -30,4 +30,4 @@ logs/
 .vscode/
 
 # ignore docker image
-cinelink.tar
+*.tar
