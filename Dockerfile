@@ -1,5 +1,5 @@
-# Use a lightweight base image
-FROM python:3.9-slim
+# Specify amd64 platform for the base image
+FROM --platform=linux/amd64 python:3.9-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
