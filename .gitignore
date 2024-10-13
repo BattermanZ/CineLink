@@ -30,4 +30,4 @@ logs.txt
 .vscode/
 
 # ignore docker image
-cinelink.tar
+*.tar
