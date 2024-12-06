@@ -1,0 +1,18 @@
+[package]
+name = "CineLink"
+version = "3.0.0"
+edition = "2021"
+
+[dependencies]
+tokio = { version = "1.42.0", features = ["full"] }
+log = "0.4.20"
+env_logger = "0.11.5"
+dotenvy = "0.15.7"
+chrono = "0.4.31"
+anyhow = "1.0.75"
+reqwest = { version = "0.12.4", features = ["json"] }
+serde = { version = "1.0.202", features = ["derive"] }
+serde_json = "1.0.117"
+regex = "1.10.4"
+quick-xml = "0.37.1"
+futures = "0.3.31"
