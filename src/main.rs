@@ -1,4 +1,5 @@
 use std::fs;
+use std::net::SocketAddr;
 use log::{info, error, debug, LevelFilter};
 use env_logger::Builder;
 use std::io::Write;
@@ -13,6 +14,13 @@ use quick_xml::reader::Reader;
 use quick_xml::events::Event;
 use futures::future::join_all;
 use tokio::task;
+use axum::{
+    routing::post,
+    Router,
+    http::StatusCode,
+    response::IntoResponse,
+    Json,
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Movie {
@@ -371,7 +379,7 @@ async fn get_all_notion_movies(client: &Client, headers: &reqwest::header::Heade
 async fn update_plex_rating(client: &Client, plex_url: &str, plex_token: &str, notion_movie: &Movie, plex_movies: &[Movie]) -> Result<()> {
     if let Some(plex_movie) = plex_movies.iter().find(|m| m.title == notion_movie.title) {
         if (plex_movie.rating - notion_movie.rating).abs() < f32::EPSILON {
-            info!("Rating for '{}' is already {} in both Notion and Plex. No update needed.", notion_movie.title, notion_movie.rating);
+            debug!("Rating for '{}' is already {} in both Notion and Plex. No update needed.", notion_movie.title, notion_movie.rating);
             return Ok(());
         }
 
@@ -474,6 +482,33 @@ fn check_env_var(var_name: &str) -> Result<()> {
     }
 }
 
+async fn sync_handler() -> impl IntoResponse {
+    info!("Sync request received");
+
+    let client = Client::new();
+    let plex_url = env::var("PLEX_URL").expect("PLEX_URL must be set");
+    let plex_token = env::var("PLEX_TOKEN").expect("PLEX_TOKEN must be set");
+    let notion_api_key = env::var("NOTION_API_KEY").expect("NOTION_API_KEY must be set");
+    let notion_database_id = env::var("NOTION_DATABASE_ID").expect("NOTION_DATABASE_ID must be set");
+    let notion_url = "https://api.notion.com/v1/pages";
+
+    let mut notion_headers = reqwest::header::HeaderMap::new();
+    notion_headers.insert("Authorization", format!("Bearer {}", notion_api_key).parse().unwrap());
+    notion_headers.insert("Content-Type", "application/json".parse().unwrap());
+    notion_headers.insert("Notion-Version", "2022-06-28".parse().unwrap());
+
+    match run_bidirectional_sync(&client, &client, &plex_url, &plex_token, notion_url, &notion_headers, &notion_database_id).await {
+        Ok(_) => {
+            info!("Sync completed successfully");
+            (StatusCode::OK, Json(json!({"status": "success", "message": "Sync completed successfully"})))
+        },
+        Err(e) => {
+            error!("Sync failed: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"status": "error", "message": format!("Sync failed: {}", e)})))
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     dotenv().context("Failed to load .env file")?;
@@ -493,21 +528,17 @@ async fn main() -> Result<()> {
         check_env_var(var)?;
     }
 
-    let client = Client::new();
-    let plex_url = env::var("PLEX_URL")?;
-    let plex_token = env::var("PLEX_TOKEN")?;
-    let notion_api_key = env::var("NOTION_API_KEY")?;
-    let notion_database_id = env::var("NOTION_DATABASE_ID")?;
-    let notion_url = "https://api.notion.com/v1/pages";
+    let app = Router::new()
+        .route("/sync", post(sync_handler))
+        .layer(tower_http::trace::TraceLayer::new_for_http());
 
-    let mut notion_headers = reqwest::header::HeaderMap::new();
-    notion_headers.insert("Authorization", format!("Bearer {}", notion_api_key).parse()?);
-    notion_headers.insert("Content-Type", "application/json".parse()?);
-    notion_headers.insert("Notion-Version", "2022-06-28".parse()?);
+    let addr = SocketAddr::from(([0, 0, 0, 0], 9999));
+    info!("Server listening on {}", addr);
 
-    run_bidirectional_sync(&client, &client, &plex_url, &plex_token, notion_url, &notion_headers, &notion_database_id).await?;
+    axum::serve(tokio::net::TcpListener::bind(addr).await?, app)
+        .await
+        .context("Failed to start server")?;
 
-    info!("CineLink shutting down...");
     Ok(())
 }
 

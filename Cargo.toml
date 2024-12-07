@@ -13,7 +13,8 @@ anyhow = "1.0.75"
 reqwest = { version = "0.12.4", features = ["json"] }
 serde = { version = "1.0.202", features = ["derive"] }
 serde_json = "1.0.117"
-regex = "1.10.4"
 quick-xml = "0.37.1"
 futures = "0.3.31"
-strsim = "0.11.1"
+axum = "0.7.9"
+tower-http = { version = "0.6.2", features = ["trace"] }
+
