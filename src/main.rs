@@ -1,5 +1,5 @@
 use std::fs;
-use log::{info, LevelFilter};
+use log::{info, error, debug, LevelFilter};
 use env_logger::Builder;
 use std::io::Write;
 use chrono::{Local, Datelike};
@@ -14,11 +14,38 @@ use quick_xml::reader::Reader;
 use quick_xml::events::Event;
 use futures::future::join_all;
 use tokio::task;
+use strsim::levenshtein;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Movie {
     title: String,
     rating: f32,
+    rating_key: String,
+    library_id: String,
+}
+
+fn normalize_title(title: &str) -> String {
+    title.to_lowercase()
+        .chars()
+        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+        .collect::<String>()
+        .trim()
+        .to_string()
+}
+
+fn titles_match(title1: &str, title2: &str) -> bool {
+    let normalized1 = normalize_title(title1);
+    let normalized2 = normalize_title(title2);
+    
+    if normalized1 == normalized2 {
+        return true;
+    }
+    
+    let distance = levenshtein(&normalized1, &normalized2);
+    let max_length = normalized1.len().max(normalized2.len());
+    let similarity = 1.0 - (distance as f64 / max_length as f64);
+    
+    similarity > 0.8
 }
 
 async fn connect_to_plex(client: &Client, plex_url: &str, plex_token: &str) -> Result<()> {
@@ -29,45 +56,36 @@ async fn connect_to_plex(client: &Client, plex_url: &str, plex_token: &str) -> R
 }
 
 async fn get_all_movies(client: &Client, plex_url: &str, plex_token: &str) -> Result<Vec<Movie>> {
-    let url = format!("{}/library/sections/1/all?X-Plex-Token={}", plex_url, plex_token);
+    let url = format!("{}/library/sections/all?X-Plex-Token={}", plex_url, plex_token);
     let response = client.get(&url).send().await?.text().await?;
     
     let mut reader = Reader::from_str(&response);
-
-    let mut movies = Vec::new();
+    let mut libraries = Vec::new();
     let mut buf = Vec::new();
-    let mut current_movie: Option<Movie> = None;
 
     loop {
         match reader.read_event_into(&mut buf) {
             Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
-                if e.name().as_ref() == b"Video" {
-                    let mut title = String::new();
-                    let mut rating = 0.0;
+                if e.name().as_ref() == b"Directory" {
+                    let mut is_movie_library = false;
+                    let mut library_id = String::new();
 
                     for attr in e.attributes().flatten() {
                         match attr.key.as_ref() {
-                            b"title" => {
-                                title = attr.unescape_value()?.into_owned();
-                            },
-                            b"userRating" => {
-                                if let Ok(user_rating) = attr.unescape_value()?.parse::<f32>() {
-                                    rating = user_rating;
+                            b"type" => {
+                                if attr.value.as_ref() == b"movie" {
+                                    is_movie_library = true;
                                 }
+                            },
+                            b"key" => {
+                                library_id = attr.unescape_value()?.into_owned();
                             },
                             _ => {}
                         }
                     }
 
-                    if !title.is_empty() {
-                        current_movie = Some(Movie { title, rating });
-                    }
-                }
-            },
-            Ok(Event::End(ref e)) => {
-                if e.name().as_ref() == b"Video" {
-                    if let Some(movie) = current_movie.take() {
-                        movies.push(movie);
+                    if is_movie_library {
+                        libraries.push(library_id);
                     }
                 }
             },
@@ -78,14 +96,69 @@ async fn get_all_movies(client: &Client, plex_url: &str, plex_token: &str) -> Re
         buf.clear();
     }
 
-    let total_movies = movies.len();
-    let rated_movies: Vec<Movie> = movies.into_iter()
+    let mut all_movies = Vec::new();
+
+    for library_id in libraries {
+        let url = format!("{}/library/sections/{}/all?X-Plex-Token={}", plex_url, library_id, plex_token);
+        let response = client.get(&url).send().await?.text().await?;
+        
+        let mut reader = Reader::from_str(&response);
+        let mut buf = Vec::new();
+        let mut current_movie: Option<Movie> = None;
+
+        loop {
+            match reader.read_event_into(&mut buf) {
+                Ok(Event::Start(ref e)) | Ok(Event::Empty(ref e)) => {
+                    if e.name().as_ref() == b"Video" {
+                        let mut title = String::new();
+                        let mut rating = 0.0;
+                        let mut rating_key = String::new();
+
+                        for attr in e.attributes().flatten() {
+                            match attr.key.as_ref() {
+                                b"title" => {
+                                    title = attr.unescape_value()?.into_owned();
+                                },
+                                b"userRating" => {
+                                    if let Ok(user_rating) = attr.unescape_value()?.parse::<f32>() {
+                                        rating = user_rating;
+                                    }
+                                },
+                                b"ratingKey" => {
+                                    rating_key = attr.unescape_value()?.into_owned();
+                                },
+                                _ => {}
+                            }
+                        }
+
+                        if !title.is_empty() && !rating_key.is_empty() {
+                            current_movie = Some(Movie { title, rating, rating_key, library_id: library_id.clone() });
+                        }
+                    }
+                },
+                Ok(Event::End(ref e)) => {
+                    if e.name().as_ref() == b"Video" {
+                        if let Some(movie) = current_movie.take() {
+                            all_movies.push(movie);
+                        }
+                    }
+                },
+                Ok(Event::Eof) => break,
+                Err(e) => return Err(anyhow!("Error parsing XML: {:?}", e)),
+                _ => {}
+            }
+            buf.clear();
+        }
+    }
+
+    let total_movies = all_movies.len();
+    let rated_movies: Vec<Movie> = all_movies.into_iter()
         .filter(|movie| movie.rating > 0.0)
         .collect();
 
     info!("Retrieved {} movies from Plex, {} with ratings.", total_movies, rated_movies.len());
     for movie in &rated_movies {
-        info!("Rated movie from Plex: {} | User Rating: {}", movie.title, movie.rating);
+        debug!("Rated movie from Plex: {} | User Rating: {} | Rating Key: {} | Library ID: {}", movie.title, movie.rating, movie.rating_key, movie.library_id);
     }
 
     Ok(rated_movies)
@@ -170,7 +243,6 @@ async fn add_movie(client: &Client, notion_url: &str, headers: &reqwest::header:
 }
 
 async fn add_movies_in_batch(client: &Client, notion_url: &str, headers: &reqwest::header::HeaderMap, movie_list: &[Movie], database_id: &str) -> Result<String> {
-    // First, check for existing movies in parallel
     let existing_movies_futures: Vec<_> = movie_list.iter()
         .map(|movie| {
             let client = client.clone();
@@ -180,7 +252,7 @@ async fn add_movies_in_batch(client: &Client, notion_url: &str, headers: &reqwes
             task::spawn(async move {
                 match check_movie_exists(&client, &headers, &title, &database_id).await {
                     Ok(exists) => (title, exists),
-                    Err(_) => (title, false), // Assume movie doesn't exist if there's an error
+                    Err(_) => (title, false),
                 }
             })
         })
@@ -204,7 +276,6 @@ async fn add_movies_in_batch(client: &Client, notion_url: &str, headers: &reqwes
 
     info!("Adding {} movies in batch to Notion...", movies_to_add.len());
 
-    // Add movies in parallel
     let add_movie_futures: Vec<_> = movies_to_add.into_iter()
         .map(|movie| {
             let client = client.clone();
@@ -222,6 +293,128 @@ async fn add_movies_in_batch(client: &Client, notion_url: &str, headers: &reqwes
     let successful_additions = results.into_iter().filter(|r| r.as_ref().map_or(false, |inner_r| inner_r.is_ok())).count();
 
     Ok(format!("Batch processing completed. Successfully added {} movies.", successful_additions))
+}
+
+async fn get_all_notion_movies(client: &Client, headers: &reqwest::header::HeaderMap, database_id: &str) -> Result<Vec<Movie>> {
+    let query_url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
+    let query_payload = json!({
+        "filter": {
+            "property": "Aurel's rating",
+            "select": {
+                "is_not_empty": true
+            }
+        }
+    });
+
+    let response = client.post(&query_url)
+        .headers(headers.clone())
+        .json(&query_payload)
+        .send()
+        .await?;
+
+    if response.status().is_success() {
+        let result: serde_json::Value = response.json().await?;
+        let movies = result["results"].as_array()
+            .ok_or_else(|| anyhow!("Unexpected response format from Notion"))?
+            .iter()
+            .filter_map(|page| {
+                let title = page["properties"]["Name"]["title"][0]["text"]["content"].as_str()?;
+                let rating_emoji = page["properties"]["Aurel's rating"]["select"]["name"].as_str()?;
+                let rating = match rating_emoji {
+                    "🌗" => 1.0,
+                    "🌕" => 2.0,
+                    "🌕🌗" => 3.0,
+                    "🌕🌕" => 4.0,
+                    "🌕🌕🌗" => 5.0,
+                    "🌕🌕🌕" => 6.0,
+                    "🌕🌕🌕🌗" => 7.0,
+                    "🌕🌕🌕🌕" => 8.0,
+                    "🌕🌕🌕🌕🌗" => 9.0,
+                    "🌕🌕🌕🌕🌕" => 10.0,
+                    _ => return None,
+                };
+                Some(Movie {
+                    title: title.to_string(),
+                    rating,
+                    rating_key: String::new(),
+                    library_id: String::new(),
+                })
+            })
+            .collect();
+
+        Ok(movies)
+    } else {
+        Err(anyhow!("Failed to query Notion database. Status: {}", response.status()))
+    }
+}
+
+async fn update_plex_rating(client: &Client, plex_url: &str, plex_token: &str, notion_movie: &Movie, plex_movies: &[Movie]) -> Result<()> {
+    if let Some(plex_movie) = plex_movies.iter().find(|m| titles_match(&m.title, &notion_movie.title)) {
+        if (plex_movie.rating - notion_movie.rating).abs() < f32::EPSILON {
+            info!("Rating for '{}' is already {} in both Notion and Plex. No update needed.", notion_movie.title, notion_movie.rating);
+            return Ok(());
+        }
+
+        let update_url = format!(
+            "{}/library/sections/{}/all?type=1&id={}&userRating.value={}&userRating.locked=1&X-Plex-Token={}",
+            plex_url, plex_movie.library_id, plex_movie.rating_key, notion_movie.rating, plex_token
+        );
+        debug!("Updating Plex rating using URL: {}", update_url);
+        let response = client.put(&update_url).send().await?;
+
+        let status = response.status();
+        if status.is_success() {
+            info!("Updated Plex rating for '{}' to {}", notion_movie.title, notion_movie.rating);
+            Ok(())
+        } else {
+            Err(anyhow!("Failed to update Plex rating for '{}'. Status: {}", notion_movie.title, status))
+        }
+    } else {
+        debug!("Movie '{}' not found in Plex library", notion_movie.title);
+        Ok(())
+    }
+}
+
+async fn sync_notion_to_plex(notion_client: &Client, plex_client: &Client, notion_headers: &reqwest::header::HeaderMap, notion_db_id: &str, plex_url: &str, plex_token: &str, plex_movies: &[Movie]) -> Result<()> {
+    info!("Starting Notion to Plex sync");
+    let notion_movies = get_all_notion_movies(notion_client, notion_headers, notion_db_id).await?;
+    
+    for movie in notion_movies {
+        if let Err(e) = update_plex_rating(plex_client, plex_url, plex_token, &movie, plex_movies).await {
+            error!("Failed to update Plex rating for '{}': {}", movie.title, e);
+        }
+    }
+    
+    info!("Notion to Plex sync completed");
+    Ok(())
+}
+
+async fn sync_plex_to_notion(notion_client: &Client, notion_url: &str, notion_headers: &reqwest::header::HeaderMap, notion_db_id: &str, plex_movies: &[Movie]) -> Result<()> {
+    info!("Starting Plex to Notion sync");
+    
+    let response = add_movies_in_batch(notion_client, notion_url, notion_headers, plex_movies, notion_db_id).await?;
+    info!("Plex to Notion sync completed: {}", response);
+    Ok(())
+}
+
+async fn run_bidirectional_sync(
+    plex_client: &Client,
+    notion_client: &Client,
+    plex_url: &str,
+    plex_token: &str,
+    notion_url: &str,
+    notion_headers: &reqwest::header::HeaderMap,
+    notion_db_id: &str
+) -> Result<()> {
+    info!("Starting bidirectional sync");
+    
+    let plex_movies = get_all_movies(plex_client, plex_url, plex_token).await?;
+    
+    sync_plex_to_notion(notion_client, notion_url, notion_headers, notion_db_id, &plex_movies).await?;
+    sync_notion_to_plex(notion_client, plex_client, notion_headers, notion_db_id, plex_url, plex_token, &plex_movies).await?;
+    
+    info!("Bidirectional sync completed successfully");
+    Ok(())
 }
 
 fn parse_logs() -> Result<(Option<(String, String)>, Vec<(String, String)>, String)> {
@@ -261,22 +454,6 @@ fn parse_logs() -> Result<(Option<(String, String)>, Vec<(String, String)>, Stri
     Ok((last_movie, last_8_movies, last_run_time))
 }
 
-async fn run_script(client: &Client, plex_url: &str, plex_token: &str, notion_url: &str, headers: &reqwest::header::HeaderMap, database_id: &str) -> Result<()> {
-    info!("Starting script...");
-
-    connect_to_plex(client, plex_url, plex_token).await?;
-
-    let movies = get_all_movies(client, plex_url, plex_token).await?;
-    info!("Found {} rated movies in your Plex library.", movies.len());
-
-    info!("Attempting to add rated movies to Notion...");
-    let response = add_movies_in_batch(client, notion_url, headers, &movies, database_id).await?;
-    info!("Notion API Response: {}", response);
-
-    info!("Script finished at {}", Local::now());
-    Ok(())
-}
-
 fn setup_logger() -> Result<()> {
     fs::create_dir_all("logs").context("Failed to create logs directory")?;
 
@@ -291,6 +468,7 @@ fn setup_logger() -> Result<()> {
                 record.args()
             )
         })
+        .filter(Some("reqwest"), LevelFilter::Warn)
         .target(env_logger::Target::Pipe(Box::new(
             fs::OpenOptions::new()
                 .create(true)
@@ -338,12 +516,12 @@ async fn main() -> Result<()> {
     let notion_database_id = env::var("NOTION_DATABASE_ID")?;
     let notion_url = "https://api.notion.com/v1/pages";
 
-    let mut headers = reqwest::header::HeaderMap::new();
-    headers.insert("Authorization", format!("Bearer {}", notion_api_key).parse()?);
-    headers.insert("Content-Type", "application/json".parse()?);
-    headers.insert("Notion-Version", "2022-06-28".parse()?);
+    let mut notion_headers = reqwest::header::HeaderMap::new();
+    notion_headers.insert("Authorization", format!("Bearer {}", notion_api_key).parse()?);
+    notion_headers.insert("Content-Type", "application/json".parse()?);
+    notion_headers.insert("Notion-Version", "2022-06-28".parse()?);
 
-    run_script(&client, &plex_url, &plex_token, notion_url, &headers, &notion_database_id).await?;
+    run_bidirectional_sync(&client, &client, &plex_url, &plex_token, notion_url, &notion_headers, &notion_database_id).await?;
 
     info!("CineLink shutting down...");
     Ok(())
