@@ -9,12 +9,10 @@ use anyhow::{Result, Context, anyhow};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use regex::Regex;
 use quick_xml::reader::Reader;
 use quick_xml::events::Event;
 use futures::future::join_all;
 use tokio::task;
-use strsim::levenshtein;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 struct Movie {
@@ -24,49 +22,6 @@ struct Movie {
     library_id: String,
 }
 
-fn normalize_title(title: &str) -> String {
-    title.to_lowercase()
-        .chars()
-        .filter(|c| c.is_alphanumeric() || c.is_whitespace())
-        .collect::<String>()
-        .trim()
-        .to_string()
-}
-
-fn is_numbered_sequel(title1: &str, title2: &str) -> bool {
-    let re = Regex::new(r"(.*?)\s*(\d+|II|III|IV|V|VI|VII|VIII|IX|X)$").unwrap();
-    if let (Some(caps1), Some(caps2)) = (re.captures(title1), re.captures(title2)) {
-        return caps1.get(1).map(|m| m.as_str()) == caps2.get(1).map(|m| m.as_str()) &&
-               caps1.get(2).map(|m| m.as_str()) != caps2.get(2).map(|m| m.as_str());
-    }
-    false
-}
-
-fn titles_match(title1: &str, title2: &str) -> bool {
-    let normalized1 = normalize_title(title1);
-    let normalized2 = normalize_title(title2);
-
-    if normalized1 == normalized2 {
-        return true;
-    }
-
-    if normalized1.contains(&normalized2) || normalized2.contains(&normalized1) {
-        return !is_numbered_sequel(title1, title2);
-    }
-
-    let distance = levenshtein(&normalized1, &normalized2);
-    let max_length = normalized1.len().max(normalized2.len());
-    let similarity = 1.0 - (distance as f64 / max_length as f64);
-
-    similarity > 0.8
-}
-
-async fn connect_to_plex(client: &Client, plex_url: &str, plex_token: &str) -> Result<()> {
-    let url = format!("{}?X-Plex-Token={}", plex_url, plex_token);
-    client.get(&url).send().await?;
-    info!("Connected to Plex server successfully.");
-    Ok(())
-}
 
 async fn get_all_movies(client: &Client, plex_url: &str, plex_token: &str) -> Result<(Vec<Movie>, Vec<Movie>)> {
     let url = format!("{}/library/sections/all?X-Plex-Token={}", plex_url, plex_token);
@@ -482,42 +437,6 @@ async fn run_bidirectional_sync(
     Ok(())
 }
 
-fn parse_logs() -> Result<(Option<(String, String)>, Vec<(String, String)>, String)> {
-    let log_content = fs::read_to_string("logs/cinelink.log")?;
-    let movie_addition_pattern = Regex::new(r"Movie '(.+?);' added to Notion with rating: '(.+?)'")?;
-    let script_finished_pattern = Regex::new(r"Script finished at (.+)")?;
-
-    let mut last_movie = None;
-    let mut last_8_movies = Vec::new();
-    let mut last_run_time = "No script run yet".to_string();
-
-    for line in log_content.lines().rev() {
-        if let Some(captures) = movie_addition_pattern.captures(line) {
-            let movie_title = captures.get(1).unwrap().as_str().to_string();
-            let movie_rating = captures.get(2).unwrap().as_str().to_string();
-
-            if last_movie.is_none() {
-                last_movie = Some((movie_title.clone(), movie_rating.clone()));
-            }
-
-            if last_8_movies.len() < 8 {
-                last_8_movies.push((movie_title, movie_rating));
-            }
-        }
-
-        if last_run_time == "No script run yet" {
-            if let Some(captures) = script_finished_pattern.captures(line) {
-                last_run_time = captures.get(1).unwrap().as_str().to_string();
-            }
-        }
-
-        if last_movie.is_some() && last_8_movies.len() == 8 && last_run_time != "No script run yet" {
-            break;
-        }
-    }
-
-    Ok((last_movie, last_8_movies, last_run_time))
-}
 
 fn setup_logger() -> Result<()> {
     fs::create_dir_all("logs").context("Failed to create logs directory")?;
