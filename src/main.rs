@@ -33,12 +33,25 @@ fn normalize_title(title: &str) -> String {
         .to_string()
 }
 
+fn is_numbered_sequel(title1: &str, title2: &str) -> bool {
+    let re = Regex::new(r"(.*?)\s*(\d+|II|III|IV|V|VI|VII|VIII|IX|X)$").unwrap();
+    if let (Some(caps1), Some(caps2)) = (re.captures(title1), re.captures(title2)) {
+        return caps1.get(1).map(|m| m.as_str()) == caps2.get(1).map(|m| m.as_str()) &&
+               caps1.get(2).map(|m| m.as_str()) != caps2.get(2).map(|m| m.as_str());
+    }
+    false
+}
+
 fn titles_match(title1: &str, title2: &str) -> bool {
     let normalized1 = normalize_title(title1);
     let normalized2 = normalize_title(title2);
 
     if normalized1 == normalized2 {
         return true;
+    }
+
+    if normalized1.contains(&normalized2) || normalized2.contains(&normalized1) {
+        return !is_numbered_sequel(title1, title2);
     }
 
     let distance = levenshtein(&normalized1, &normalized2);
@@ -401,7 +414,7 @@ async fn get_all_notion_movies(client: &Client, headers: &reqwest::header::Heade
 }
 
 async fn update_plex_rating(client: &Client, plex_url: &str, plex_token: &str, notion_movie: &Movie, plex_movies: &[Movie]) -> Result<()> {
-    if let Some(plex_movie) = plex_movies.iter().find(|m| titles_match(&m.title, &notion_movie.title)) {
+    if let Some(plex_movie) = plex_movies.iter().find(|m| m.title == notion_movie.title) {
         if (plex_movie.rating - notion_movie.rating).abs() < f32::EPSILON {
             info!("Rating for '{}' is already {} in both Notion and Plex. No update needed.", notion_movie.title, notion_movie.rating);
             return Ok(());
