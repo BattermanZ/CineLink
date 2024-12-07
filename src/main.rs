@@ -20,6 +20,7 @@ use axum::{
     http::StatusCode,
     response::IntoResponse,
     Json,
+    extract::State,
 };
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -441,7 +442,6 @@ async fn run_bidirectional_sync(
     sync_plex_to_notion(notion_client, notion_url, notion_headers, notion_db_id, &rated_plex_movies).await?;
     sync_notion_to_plex(notion_client, plex_client, notion_headers, notion_db_id, plex_url, plex_token, &all_plex_movies).await?;
 
-    info!("Bidirectional sync completed successfully");
     Ok(())
 }
 
@@ -482,8 +482,20 @@ fn check_env_var(var_name: &str) -> Result<()> {
     }
 }
 
-async fn sync_handler() -> impl IntoResponse {
+async fn sync_handler(headers: axum::http::HeaderMap, State(api_key): State<String>) -> impl IntoResponse {
     info!("Sync request received");
+
+    // Check if the API key is present and correct
+    let auth_header = headers.get("Authorization");
+    match auth_header {
+        Some(header) if header == &format!("Bearer {}", api_key) => {
+            info!("Sync request received with valid API key");
+        }
+        _ => {
+            error!("Sync request received with invalid or missing API key");
+            return (StatusCode::UNAUTHORIZED, Json(json!({"status": "error", "message": "Invalid or missing API key"}))).into_response();
+        }
+    }
 
     let client = Client::new();
     let plex_url = env::var("PLEX_URL").expect("PLEX_URL must be set");
@@ -500,11 +512,11 @@ async fn sync_handler() -> impl IntoResponse {
     match run_bidirectional_sync(&client, &client, &plex_url, &plex_token, notion_url, &notion_headers, &notion_database_id).await {
         Ok(_) => {
             info!("Sync completed successfully");
-            (StatusCode::OK, Json(json!({"status": "success", "message": "Sync completed successfully"})))
+            (StatusCode::OK, Json(json!({"status": "success", "message": "Sync completed successfully"}))).into_response()
         },
         Err(e) => {
             error!("Sync failed: {}", e);
-            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"status": "error", "message": format!("Sync failed: {}", e)})))
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"status": "error", "message": format!("Sync failed: {}", e)}))).into_response()
         }
     }
 }
@@ -522,15 +534,19 @@ async fn main() -> Result<()> {
         "NOTION_DATABASE_ID",
         "PLEX_URL",
         "PLEX_TOKEN",
+        "API_KEY",
     ];
 
     for var in env_vars.iter() {
         check_env_var(var)?;
     }
 
+    let api_key = env::var("API_KEY").expect("API_KEY must be set");
+
     let app = Router::new()
         .route("/sync", post(sync_handler))
-        .layer(tower_http::trace::TraceLayer::new_for_http());
+        .layer(tower_http::trace::TraceLayer::new_for_http())
+        .with_state(api_key);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 9999));
     info!("Server listening on {}", addr);
