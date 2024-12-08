@@ -42,3 +42,6 @@ build/
 # Temporary files
 *.tmp
 *.temp
+
+# Assistants
+assistants/
