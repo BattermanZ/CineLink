@@ -42,7 +42,7 @@ COPY --from=builder /app/target/release/CineLink .
 RUN mkdir -p /app/logs
 
 # Expose the port the app runs on
-EXPOSE ${PORT:-3146}
+EXPOSE 3146
 
 # Set the command to run the CineLink application
 CMD ["./CineLink"]

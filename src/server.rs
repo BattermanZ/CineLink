@@ -7,7 +7,7 @@ use axum::{
     Json,
     extract::{State, Query, Multipart},
 };
-use log::{debug, info, warn, error};
+use log::{debug, info, error};
 use reqwest::Client;
 use serde_json::json;
 use std::env;
