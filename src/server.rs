@@ -114,7 +114,7 @@ pub async fn start_server() -> Result<()> {
         .layer(tower_http::trace::TraceLayer::new_for_http())
         .with_state(api_key);
 
-    let addr = SocketAddr::from(([0, 0, 0, 0], 9999));
+    let addr = SocketAddr::from(([0, 0, 0, 0], 3146));
     info!("Server listening on {}", addr);
 
     axum::serve(tokio::net::TcpListener::bind(addr).await?, app)
