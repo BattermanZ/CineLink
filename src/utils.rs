@@ -1,10 +1,11 @@
 use anyhow::{Result, Context, anyhow};
-use chrono::Local;
-use env_logger::Builder;
 use log::{info, LevelFilter};
+use log4rs::append::console::ConsoleAppender;
+use log4rs::append::file::FileAppender;
+use log4rs::encode::pattern::PatternEncoder;
+use log4rs::config::{Appender, Config, Root};
 use std::env;
 use std::fs;
-use std::io::Write;
 
 pub fn numeric_to_emoji_rating(numeric_rating: f32) -> &'static str {
     match numeric_rating as i32 {
@@ -25,26 +26,30 @@ pub fn numeric_to_emoji_rating(numeric_rating: f32) -> &'static str {
 pub fn setup_logger() -> Result<()> {
     fs::create_dir_all("logs").context("Failed to create logs directory")?;
 
-    Builder::new()
-        .filter_level(LevelFilter::Info)
-        .format(|buf, record| {
-            writeln!(
-                buf,
-                "{} [{}] - {}",
-                Local::now().format("%Y-%m-%d %H:%M:%S"),
-                record.level(),
-                record.args()
-            )
-        })
-        .filter(Some("reqwest"), LevelFilter::Warn)
-        .target(env_logger::Target::Pipe(Box::new(
-            fs::OpenOptions::new()
-                .create(true)
-                .append(true)
-                .open("logs/cinelink.log")
-                .context("Failed to open or create log file")?
-        )))
-        .init();
+    let log_pattern = "{d(%Y-%m-%d %H:%M:%S)} [{l}] - {m}{n}";
+
+    // Create stdout appender
+    let stdout = ConsoleAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(log_pattern)))
+        .build();
+
+    // Create file appender
+    let logfile = FileAppender::builder()
+        .encoder(Box::new(PatternEncoder::new(log_pattern)))
+        .build("logs/cinelink.log")?;
+
+    // Build config with both appenders
+    let config = Config::builder()
+        .appender(Appender::builder().build("stdout", Box::new(stdout)))
+        .appender(Appender::builder().build("logfile", Box::new(logfile)))
+        .build(Root::builder()
+            .appender("stdout")
+            .appender("logfile")
+            .build(LevelFilter::Info))?;
+
+    // Initialize the logger
+    log4rs::init_config(config)?;
+
     Ok(())
 }
 

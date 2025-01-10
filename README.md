@@ -18,6 +18,71 @@ Synchronize your movie ratings between Plex and Notion, with added support for T
   - 🖼️ Show posters
   - 📅 Air dates
 
+## 🚀 Project Structure
+
+```
+CineLink/
+├── src/
+│   ├── main.rs        # Application entry point and module declarations
+│   ├── models.rs      # Data structures for Movies and TV Shows
+│   ├── notion.rs      # Notion API integration and database operations
+│   ├── plex.rs        # Plex API integration and XML parsing
+│   ├── server.rs      # HTTP server setup and API endpoints
+│   ├── sync.rs        # Synchronization logic between Plex and Notion
+│   ├── tmdb.rs        # TMDB API integration for TV show details
+│   └── utils.rs       # Utility functions and logging setup
+├── logs/
+│   └── cinelink.log   # Application logs
+├── .env               # Environment variables (create from .env.example)
+├── .env.example       # Example environment variables template
+├── Cargo.toml         # Rust dependencies and project metadata
+├── Dockerfile         # Container configuration
+├── LICENSE           # MIT License
+└── README.md         # Project documentation
+```
+
+### 📑 File Descriptions
+
+- **`main.rs`**: Entry point of the application. Sets up the server, initializes logging, and manages module imports.
+
+- **`models.rs`**: Contains data structures for:
+  - `Movie`: Represents a movie with title, rating, and identifiers
+  - `TvShow`: Represents a TV show with season information
+  - `TvSeason`: Detailed TV season information including cast and trailers
+
+- **`notion.rs`**: Handles all Notion database operations:
+  - Movie addition and updates
+  - TV show updates
+  - Rating synchronization
+  - Database querying
+
+- **`plex.rs`**: Manages Plex server interactions:
+  - Movie library scanning
+  - Rating retrieval and updates
+  - XML response parsing
+
+- **`server.rs`**: HTTP server implementation:
+  - API endpoint definitions
+  - Request handling
+  - Authentication middleware
+  - Error handling
+
+- **`sync.rs`**: Core synchronization logic:
+  - Bidirectional sync between Plex and Notion
+  - Batch processing
+  - Conflict resolution
+
+- **`tmdb.rs`**: TMDB API integration:
+  - TV show search
+  - Season details retrieval
+  - Cast and trailer information
+  - Image URL handling
+
+- **`utils.rs`**: Utility functions:
+  - Rating conversion (numeric to emoji)
+  - Logging setup
+  - Environment variable validation
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -76,6 +141,15 @@ Synchronize your movie ratings between Plex and Notion, with added support for T
 # Build the image
 docker build -t cinelink:3.1.0 --platform linux/amd64 .
 
+# Run the container
+docker run -d \
+  --name cinelink \
+  -p 3146:3146 \
+  --env-file .env \
+  -v $(pwd)/logs:/app/logs \
+  cinelink:3.1.0
+```
+
 ### 📡 API Endpoints
 
 1. **Movie Sync**
@@ -92,7 +166,31 @@ docker build -t cinelink:3.1.0 --platform linux/amd64 .
 
 ## 📝 Logs
 
-Logs are stored in `logs/cinelink.log`
+Logs are available in two ways:
+
+1. **File Logs**
+   - Stored in `logs/cinelink.log`
+   - Persistent across container restarts when using volume mount
+
+2. **Docker Logs**
+   - Available through Docker's logging system
+   - Can be viewed with:
+     ```bash
+     # View logs directly
+     docker logs cinelink
+
+     # Follow logs
+     docker logs -f cinelink
+     ```
+   - Compatible with logging platforms like [Dozzle](https://dozzle.dev/)
+   - To use with Dozzle:
+     ```bash
+     docker run -d \
+       --name dozzle \
+       -p 8080:8080 \
+       --volume=/var/run/docker.sock:/var/run/docker.sock \
+       amir20/dozzle
+     ```
 
 ## 🔒 Security
 
