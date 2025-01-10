@@ -15,17 +15,24 @@ use std::net::SocketAddr;
 use serde::Deserialize;
 
 use crate::sync::run_bidirectional_sync;
+use crate::notion::update_tv_shows_with_tmdb;
 
 #[derive(Deserialize)]
 struct WebhookQuery {}
 
-async fn sync_handler(headers: axum::http::HeaderMap, State(api_key): State<String>) -> impl IntoResponse {
+#[derive(Clone)]
+pub struct AppState {
+    sync_api_key: String,
+    tvshows_api_key: String,
+}
+
+async fn sync_handler(headers: axum::http::HeaderMap, State(state): State<AppState>) -> impl IntoResponse {
     debug!("Sync request received");
 
     // Check if the API key is present and correct
     let auth_header = headers.get("Authorization");
     match auth_header {
-        Some(header) if header == &format!("Bearer {}", api_key) => {
+        Some(header) if header == &format!("Bearer {}", state.sync_api_key) => {
             debug!("Sync request received with valid API key");
         }
         _ => {
@@ -39,7 +46,7 @@ async fn sync_handler(headers: axum::http::HeaderMap, State(api_key): State<Stri
 
 async fn webhook_handler(
     Query(_params): Query<WebhookQuery>,
-    State(_api_key): State<String>,
+    State(_state): State<AppState>,
     mut multipart: Multipart,
 ) -> impl IntoResponse {
     let mut payload = String::new();
@@ -79,6 +86,33 @@ async fn webhook_handler(
     }
 }
 
+async fn update_tv_shows_handler(headers: axum::http::HeaderMap, State(state): State<AppState>) -> impl IntoResponse {
+    debug!("TV show update request received");
+
+    // Check if the API key is present and correct
+    let auth_header = headers.get("Authorization");
+    match auth_header {
+        Some(header) if header == &format!("Bearer {}", state.tvshows_api_key) => {
+            debug!("TV show update request received with valid API key");
+        }
+        _ => {
+            error!("TV show update request received with invalid or missing API key");
+            return (StatusCode::UNAUTHORIZED, Json(json!({"status": "error", "message": "Invalid or missing API key"})));
+        }
+    }
+
+    match update_tv_shows().await {
+        Ok(_) => {
+            info!("TV show update completed successfully");
+            (StatusCode::OK, Json(json!({"status": "success", "message": "TV show update completed successfully"})))
+        },
+        Err(e) => {
+            error!("TV show update failed: {}", e);
+            (StatusCode::INTERNAL_SERVER_ERROR, Json(json!({"status": "error", "message": format!("TV show update failed: {}", e)})))
+        }
+    }
+}
+
 async fn trigger_sync() -> (StatusCode, Json<serde_json::Value>) {
     let client = Client::new();
     let plex_url = env::var("PLEX_URL").expect("PLEX_URL must be set");
@@ -104,15 +138,37 @@ async fn trigger_sync() -> (StatusCode, Json<serde_json::Value>) {
     }
 }
 
+async fn update_tv_shows() -> Result<()> {
+    let client = Client::new();
+    let notion_api_key = env::var("NOTION_API_KEY").expect("NOTION_API_KEY must be set");
+    let notion_database_id = env::var("NOTION_DATABASE_ID").expect("NOTION_DATABASE_ID must be set");
+    let notion_url = "https://api.notion.com/v1/pages";
+
+    let mut notion_headers = reqwest::header::HeaderMap::new();
+    notion_headers.insert("Authorization", format!("Bearer {}", notion_api_key).parse().unwrap());
+    notion_headers.insert("Content-Type", "application/json".parse().unwrap());
+    notion_headers.insert("Notion-Version", "2022-06-28".parse().unwrap());
+
+    update_tv_shows_with_tmdb(&client, notion_url, &notion_headers, &notion_database_id).await
+}
+
 pub async fn start_server() -> Result<()> {
-    let api_key = env::var("API_KEY").expect("API_KEY must be set");
+    let sync_api_key = env::var("API_KEY").expect("API_KEY must be set");
+    let tvshows_api_key = env::var("TVSHOWS_API_KEY").expect("TVSHOWS_API_KEY must be set");
+    
     info!("Starting server");
+
+    let app_state = AppState {
+        sync_api_key,
+        tvshows_api_key,
+    };
 
     let app = Router::new()
         .route("/sync", post(sync_handler))
         .route("/webhook", post(webhook_handler))
+        .route("/update-tv-shows", post(update_tv_shows_handler))
         .layer(tower_http::trace::TraceLayer::new_for_http())
-        .with_state(api_key);
+        .with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3146));
     info!("Server listening on {}", addr);

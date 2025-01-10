@@ -4,6 +4,7 @@ mod notion;
 mod sync;
 mod utils;
 mod server;
+mod tmdb;
 
 use anyhow::{Result, Context};
 use log::{info, debug};
@@ -34,6 +35,8 @@ async fn main() -> Result<()> {
         "PLEX_URL",
         "PLEX_TOKEN",
         "API_KEY",
+        "TMDB_API_KEY",
+        "TVSHOWS_API_KEY",
     ];
 
     debug!("Checking environment variables");
