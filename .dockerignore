@@ -1,0 +1,34 @@
+# Rust build artifacts
+/target
+**/*.rs.bk
+Cargo.lock
+
+# Version control
+.git
+.gitignore
+
+# Editor files
+.vscode
+.idea
+
+# Logs
+/logs
+*.log
+
+# Environment variables
+.env
+.env.*
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Debug files
+**/*.pdb
+**/*.dSYM
+
