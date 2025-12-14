@@ -45,3 +45,6 @@ build/
 
 # Assistants
 assistants/
+
+# jsonl assistant files
+*.jsonl

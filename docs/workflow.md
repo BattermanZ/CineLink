@@ -3,36 +3,36 @@
 ```mermaid
 flowchart TD
     subgraph Startup
-        A[Launch binary / container] --> B[Load .env (current dir or /app/.env)]
-        B --> C[Setup logger (stdout + logs/cinelink.log)]
-        C --> D[Validate env vars (Plex, Notion, API keys, TMDB)]
-        D --> E[Start Axum server on :3146]
+        A["Launch binary or container"] --> B["Load .env (cwd, else /app/.env)"]
+        B --> C["Setup logger (stdout + logs/cinelink.log)"]
+        C --> D["Validate env vars (Plex, Notion, API keys, TMDB)"]
+        D --> E["Start Axum server on :3146"]
     end
 
     subgraph Trigger
-        F[/POST /sync or Plex webhook media.rate/] --> G{API key valid?}
-        G -- no --> H[401 error]
-        G -- yes --> I[Build Notion headers]
+        F["POST /sync or Plex webhook media.rate"] --> G{API key valid?}
+        G -- no --> H["401 error"]
+        G -- yes --> I["Build Notion headers"]
     end
 
     subgraph Sync
-        I --> J[Fetch Plex libraries + movies]
-        J --> K[Split: rated movies + all movies]
-        K --> L[Plex → Notion: add new pages, fill missing ratings]
-        K --> M[Notion → Plex: apply ratings by title match]
+        I --> J["Fetch Plex libraries + movies"]
+        J --> K["Split: rated movies + all movies"]
+        K --> L["Plex -> Notion: add new pages, fill missing ratings"]
+        K --> M["Notion -> Plex: apply ratings by title match"]
     end
 
-    subgraph TV Shows (optional)
-        N[/POST /update-tv-shows/] --> O{API key valid?}
-        O -- no --> P[401 error]
-        O -- yes --> Q[Query Notion pages with Type = TV Series]
-        Q --> R[For each page: get TMDB show + season data]
-        R --> S[Update Notion fields: synopsis, cast, trailer, year, cover/icon]
+    subgraph tvshows[TV Shows optional]
+        N["POST /update-tv-shows"] --> O{API key valid?}
+        O -- no --> P["401 error"]
+        O -- yes --> Q["Query Notion pages where Type = TV Series"]
+        Q --> R["For each page: get TMDB show + season data"]
+        R --> S["Update Notion fields: synopsis, cast, trailer, year, cover/icon"]
     end
 
     E --> F
     E --> N
-    L --> T[Log results]
+    L --> T["Log results"]
     M --> T
     S --> T
 ```
