@@ -126,24 +126,51 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
 
     let season_str = notion::extract_select(props, "Season")
         .or_else(|| notion::extract_rich_text(props, "Season"));
-    let season_number = if is_tv {
-        match season_str.as_deref().and_then(tmdb::parse_season_number) {
-            Some(n) => Some(n),
+    let season_number_parsed = season_str
+        .as_deref()
+        .and_then(tmdb::parse_season_number);
+
+    let imdb_hint = tmdb::parse_imdb_id(&clean_title);
+    let mut resolved_id: Option<i32> = None;
+    let mut forced_tv = is_tv;
+
+    if let Some(imdb) = imdb_hint {
+        let (movie_id, tv_id) = state.tmdb.lookup_imdb(&imdb).await?;
+        if forced_tv {
+            if let Some(id) = tv_id {
+                resolved_id = Some(id);
+            } else if let Some(id) = movie_id {
+                resolved_id = Some(id);
+                forced_tv = false;
+            }
+        } else {
+            if let Some(id) = movie_id {
+                resolved_id = Some(id);
+            } else if let Some(id) = tv_id {
+                resolved_id = Some(id);
+                forced_tv = true;
+            }
+        }
+    }
+
+    let tmdb_media = if forced_tv {
+        let season = match season_number_parsed {
+            Some(s) => s,
             None => {
                 warn!("TV item missing or invalid season, skipping");
                 return Ok(());
             }
-        }
-    } else {
-        None
-    };
-
-    let tmdb_media = if is_tv {
-        let season = season_number.expect("season required");
-        let show_id = state.tmdb.resolve_tv_id(&clean_title).await?;
+        };
+        let show_id = match resolved_id {
+            Some(id) => id,
+            None => state.tmdb.resolve_tv_id(&clean_title).await?,
+        };
         state.tmdb.fetch_tv_season(show_id, season).await?
     } else {
-        let movie_id = state.tmdb.resolve_movie_id(&clean_title).await?;
+        let movie_id = match resolved_id {
+            Some(id) => id,
+            None => state.tmdb.resolve_movie_id(&clean_title).await?,
+        };
         state.tmdb.fetch_movie(movie_id).await?
     };
 

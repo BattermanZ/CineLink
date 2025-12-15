@@ -70,6 +70,13 @@ impl TmdbApi for FakeTmdb {
         }
         self.search_tv(query).await
     }
+    async fn lookup_imdb(&self, imdb_id: &str) -> anyhow::Result<(Option<i32>, Option<i32>)> {
+        match imdb_id {
+            "tt12345" => Ok((Some(self.movie.id), None)),
+            "tt99999" => Ok((None, Some(self.tv.id))),
+            _ => Ok((None, None)),
+        }
+    }
     async fn fetch_movie(&self, id: i32) -> anyhow::Result<MediaData> {
         assert_eq!(id, self.movie.id);
         Ok(self.movie.clone())
@@ -422,4 +429,43 @@ async fn resolves_imdb_id_for_movie() {
         .and_then(|t| t.get("content"))
         .and_then(|s| s.as_str());
     assert_eq!(name, Some(movie.name.as_str()));
+}
+
+#[tokio::test]
+async fn resolves_imdb_id_for_tv_even_if_type_movie() {
+    // Type is Movie but imdb points to a TV show; resolver should switch to TV and succeed.
+    let page = make_page("tt99999 ;", "Movie", Some("Season 1"));
+    let tv = tmdb_tv();
+    let (app, notion) = app_with_mocks(
+        page.clone(),
+        FakeTmdb {
+            movie: tmdb_movie(),
+            tv: tv.clone(),
+        },
+    );
+
+    let payload = webhook_payload(&["title", "season"], page.get("id").unwrap().as_str().unwrap());
+    let res = app
+        .oneshot(
+            Request::post("/")
+                .header("content-type", "application/json")
+                .body(Body::from(payload))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let updates = notion.updates.lock().unwrap();
+    assert_eq!(updates.len(), 1);
+    let (_id, props, _, _) = &updates[0];
+    let name = props
+        .get("Name")
+        .and_then(|p| p.get("title"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(name, Some(tv.name.as_str()));
 }

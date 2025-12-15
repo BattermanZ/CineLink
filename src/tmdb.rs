@@ -19,6 +19,7 @@ pub trait TmdbApi: Send + Sync {
     async fn search_tv(&self, query: &str) -> Result<i32>;
     async fn resolve_movie_id(&self, query: &str) -> Result<i32>;
     async fn resolve_tv_id(&self, query: &str) -> Result<i32>;
+    async fn lookup_imdb(&self, imdb_id: &str) -> Result<(Option<i32>, Option<i32>)>;
     async fn fetch_movie(&self, id: i32) -> Result<MediaData>;
     async fn fetch_tv_season(&self, id: i32, season: i32) -> Result<MediaData>;
 }
@@ -124,6 +125,10 @@ impl TmdbApi for TmdbClient {
             }
         }
         self.search_tv(query).await
+    }
+
+    async fn lookup_imdb(&self, imdb_id: &str) -> Result<(Option<i32>, Option<i32>)> {
+        self.find_imdb_media(imdb_id).await
     }
 
     async fn fetch_movie(&self, id: i32) -> Result<MediaData> {
@@ -353,6 +358,30 @@ impl TmdbClient {
             _ => None,
         };
         Ok(id)
+    }
+
+    async fn find_imdb_media(&self, imdb_id: &str) -> Result<(Option<i32>, Option<i32>)> {
+        #[derive(Deserialize)]
+        struct FindResponse {
+            movie_results: Option<Vec<FindResult>>,
+            tv_results: Option<Vec<FindResult>>,
+        }
+        #[derive(Deserialize)]
+        struct FindResult {
+            id: i32,
+        }
+
+        let url = format!(
+            "{TMDB_BASE}/find/{imdb_id}?external_source=imdb_id&language=en-US&api_key={}",
+            self.api_key
+        );
+        let data: FindResponse = self.get_json(&url).await?;
+        let movie_id = data
+            .movie_results
+            .and_then(|mut v| v.pop())
+            .map(|r| r.id);
+        let tv_id = data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id);
+        Ok((movie_id, tv_id))
     }
 }
 
