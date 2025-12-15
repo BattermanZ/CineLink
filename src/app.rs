@@ -134,9 +134,7 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
 
     let season_str = notion::extract_select(props, "Season")
         .or_else(|| notion::extract_rich_text(props, "Season"));
-    let season_number_parsed = season_str
-        .as_deref()
-        .and_then(tmdb::parse_season_number);
+    let season_number_parsed = season_str.as_deref().and_then(tmdb::parse_season_number);
 
     let imdb_hint = tmdb::parse_imdb_id(&clean_title);
     let mut resolved_id: Option<i32> = None;
@@ -151,13 +149,11 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
                 resolved_id = Some(id);
                 forced_tv = false;
             }
-        } else {
-            if let Some(id) = movie_id {
-                resolved_id = Some(id);
-            } else if let Some(id) = tv_id {
-                resolved_id = Some(id);
-                forced_tv = true;
-            }
+        } else if let Some(id) = movie_id {
+            resolved_id = Some(id);
+        } else if let Some(id) = tv_id {
+            resolved_id = Some(id);
+            forced_tv = true;
         }
     }
 
@@ -195,7 +191,10 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         match state.tmdb.fetch_tv_season(show_id, season).await {
             Ok(data) => data,
             Err(e) => {
-                warn!("Failed to fetch TMDB TV season for '{}': {}", clean_title, e);
+                warn!(
+                    "Failed to fetch TMDB TV season for '{}': {}",
+                    clean_title, e
+                );
                 set_error_title(
                     &state.notion,
                     page_id,
@@ -378,8 +377,14 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
     });
 
     info!("Updating Notion page '{}'", tmdb_media.name);
-    state.notion.update_page(page_id, updates, icon, cover).await?;
-    info!("Finished update for page '{}' -> '{}'", raw_title, tmdb_media.name);
+    state
+        .notion
+        .update_page(page_id, updates, icon, cover)
+        .await?;
+    info!(
+        "Finished update for page '{}' -> '{}'",
+        raw_title, tmdb_media.name
+    );
     Ok(())
 }
 

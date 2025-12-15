@@ -21,7 +21,7 @@ flowchart TD
         F -- "yes" --> H["Resolve TV id<br/>(TMDB id or IMDb tt in title<br/>else search)"]
         G --> I[Fetch movie details<br/>pick original title if fr/es]
         H --> J[Fetch TV season details<br/>pick original title if fr/es]
-        I --> K[Matched media<br/>set Eng Name only when original used]
+        I --> K[Matched media<br/>set Eng Name only when original used;<br/>poster prefers fr/es images if fr/es]
         J --> K
         K -- "fetch fail" --> L["Set error title<br/>No TMDB match"]
         L --> Z

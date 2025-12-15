@@ -446,7 +446,10 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
         },
     );
 
-    let payload = webhook_payload(&["title", "season"], page.get("id").unwrap().as_str().unwrap());
+    let payload = webhook_payload(
+        &["title", "season"],
+        page.get("id").unwrap().as_str().unwrap(),
+    );
     let res = app
         .oneshot(
             Request::post("/")
@@ -478,7 +481,7 @@ async fn uses_original_title_for_french_with_eng_name_set() {
     let french_media = MediaData {
         id: 303,
         name: "Titre anglais".to_string(), // localized title
-        eng_name: None, // will be ignored; we set below
+        eng_name: None,                    // will be ignored; we set below
         synopsis: None,
         genres: vec![],
         cast: vec![],

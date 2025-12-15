@@ -106,7 +106,10 @@ impl NotionApi for NotionClient {
         match fetch_schema_via_query(&self.client, &self.api_key, &self.database_id).await {
             Ok(inferred) => Ok(inferred),
             Err(e) => {
-                warn!("Failed to infer schema via query: {}. Using fallback schema.", e);
+                warn!(
+                    "Failed to infer schema via query: {}. Using fallback schema.",
+                    e
+                );
                 Ok(fallback_schema())
             }
         }

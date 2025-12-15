@@ -209,8 +209,12 @@ impl TmdbApi for TmdbClient {
         let poster = match preferred_lang {
             Some(lang) => {
                 let images = self.fetch_movie_images(id, lang).await.ok();
-                select_poster(images.as_ref(), Some(lang))
-                    .or_else(|| detail.poster_path.as_ref().map(|p| format!("{POSTER_BASE}{p}")))
+                select_poster(images.as_ref(), Some(lang)).or_else(|| {
+                    detail
+                        .poster_path
+                        .as_ref()
+                        .map(|p| format!("{POSTER_BASE}{p}"))
+                })
             }
             None => detail
                 .poster_path
@@ -234,7 +238,7 @@ impl TmdbApi for TmdbClient {
             .map(|id| format!("https://www.imdb.com/title/{id}"));
         let language = language_name(&detail.original_language);
         let use_original = detail.original_language == "fr" || detail.original_language == "es";
-    let name = if use_original {
+        let name = if use_original {
             detail.original_title.clone()
         } else {
             detail.title.clone()
@@ -437,10 +441,7 @@ impl TmdbClient {
         );
         let data: FindResponse = self.get_json(&url).await?;
         let id = match media {
-            "movie" => data
-                .movie_results
-                .and_then(|mut v| v.pop())
-                .map(|r| r.id),
+            "movie" => data.movie_results.and_then(|mut v| v.pop()).map(|r| r.id),
             "tv" => data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id),
             _ => None,
         };
@@ -463,10 +464,7 @@ impl TmdbClient {
             self.api_key
         );
         let data: FindResponse = self.get_json(&url).await?;
-        let movie_id = data
-            .movie_results
-            .and_then(|mut v| v.pop())
-            .map(|r| r.id);
+        let movie_id = data.movie_results.and_then(|mut v| v.pop()).map(|r| r.id);
         let tv_id = data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id);
         Ok((movie_id, tv_id))
     }
@@ -752,5 +750,7 @@ fn select_poster(images: Option<&ImageResponse>, preferred_lang: Option<&str>) -
             .map(|p| p.file_path.clone())
     });
     let fallback = posters.first().map(|p| p.file_path.clone());
-    first_match.or(fallback).map(|p| format!("{POSTER_BASE}{p}"))
+    first_match
+        .or(fallback)
+        .map(|p| format!("{POSTER_BASE}{p}"))
 }
