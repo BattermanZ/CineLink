@@ -9,14 +9,18 @@ use axum::{
     routing::post,
     Router,
 };
+use chrono::Utc;
 use constant_time_eq::constant_time_eq;
 use hmac::{Hmac, Mac};
 use serde_json::json;
 use sha2::Sha256;
-use std::{env, net::SocketAddr, sync::Arc};
+use std::{collections::HashMap, env, net::SocketAddr, sync::Arc};
+use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 const MAX_BODY_BYTES: usize = 1024 * 1024; // 1MB safety cap
+const PER_IP_LIMIT: u32 = 60;
+const PER_IP_BURST: u32 = 10;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -25,6 +29,13 @@ pub struct AppState {
     pub title_property: String,
     pub schema: Arc<notion::PropertySchema>,
     pub signing_secret: String,
+    pub rate_limits: Arc<Mutex<HashMap<String, WindowCounter>>>,
+}
+
+#[derive(Clone, Debug)]
+pub struct WindowCounter {
+    window: u64,
+    count: u32,
 }
 
 pub async fn run_server() -> Result<()> {
@@ -49,12 +60,15 @@ pub async fn run_server() -> Result<()> {
         .ok_or_else(|| anyhow::anyhow!("NOTION_WEBHOOK_SECRET must be set"))?;
     info!("Webhook signature will use NOTION_WEBHOOK_SECRET");
 
+    let rate_limits = Arc::new(Mutex::new(HashMap::new()));
+
     let state = AppState {
         notion,
         tmdb,
         title_property,
         schema,
         signing_secret,
+        rate_limits,
     };
 
     let app = build_router(state);
@@ -76,6 +90,12 @@ async fn handle_webhook(
     headers: HeaderMap,
     body: Bytes,
 ) -> StatusCode {
+    let ip = extract_ip(&headers);
+    if !check_rate_limit(&state, &ip).await {
+        warn!("Rate limit exceeded for {}", ip);
+        return StatusCode::TOO_MANY_REQUESTS;
+    }
+
     if body.len() > MAX_BODY_BYTES {
         warn!(
             "Rejecting request: body too large ({} bytes > {} bytes)",
@@ -97,16 +117,6 @@ async fn handle_webhook(
             headers.get(header::CONTENT_TYPE)
         );
         return StatusCode::UNSUPPORTED_MEDIA_TYPE;
-    }
-
-    let version = headers.get("Notion-Version").and_then(|v| v.to_str().ok());
-    if let Some(v) = version {
-        if v != crate::notion::NOTION_VERSION {
-            warn!("Rejecting request: invalid Notion-Version {:?}", v);
-            return StatusCode::BAD_REQUEST;
-        }
-    } else {
-        warn!("Notion-Version header missing; proceeding (webhooks may omit it)");
     }
 
     if !verify_notion_signature(&headers, &body, &state.signing_secret) {
@@ -151,10 +161,6 @@ async fn handle_webhook(
             })
     });
     if !should_process {
-        info!(
-            "Ignoring webhook; updated properties {:?} not in [title, season]",
-            updated_decoded
-        );
         return StatusCode::OK;
     }
 
@@ -493,4 +499,31 @@ fn verify_notion_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> bo
     let computed = mac.finalize().into_bytes();
 
     expected.len() == computed.len() && constant_time_eq(&computed, &expected)
+}
+
+fn extract_ip(headers: &HeaderMap) -> String {
+    headers
+        .get("cf-connecting-ip")
+        .or_else(|| headers.get("x-real-ip"))
+        .or_else(|| headers.get("x-forwarded-for"))
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.split(',').next().unwrap_or(s).trim().to_string())
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+async fn check_rate_limit(state: &AppState, ip: &str) -> bool {
+    let window = (Utc::now().timestamp() / 60) as u64;
+    let mut guards = state.rate_limits.lock().await;
+    let entry = guards
+        .entry(ip.to_string())
+        .or_insert(WindowCounter { window, count: 0 });
+    if entry.window != window {
+        entry.window = window;
+        entry.count = 0;
+    }
+    if entry.count >= PER_IP_LIMIT + PER_IP_BURST {
+        return false;
+    }
+    entry.count += 1;
+    true
 }

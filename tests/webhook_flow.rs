@@ -221,6 +221,7 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
         title_property: "Name".to_string(),
         schema: Arc::new(schema),
         signing_secret: WEBHOOK_SECRET.to_string(),
+        rate_limits: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
     };
 
     (build_router(state), notion)
