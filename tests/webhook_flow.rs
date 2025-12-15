@@ -1,6 +1,7 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
+use chrono::Utc;
 use cinelink::app::{build_router, AppState};
 use cinelink::notion::{NotionApi, PropertySchema, PropertyType, NOTION_VERSION};
 use cinelink::tmdb::{MediaData, TmdbApi};
@@ -222,6 +223,10 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
         schema: Arc::new(schema),
         signing_secret: WEBHOOK_SECRET.to_string(),
         rate_limits: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+        global_limit: Arc::new(tokio::sync::Mutex::new(cinelink::app::WindowCounter {
+            window: 0,
+            count: 0,
+        })),
     };
 
     (build_router(state), notion)
@@ -229,6 +234,7 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
 
 fn webhook_payload(updated: &[&str], page_id: &str) -> String {
     json!({
+        "timestamp": Utc::now().to_rfc3339(),
         "type": "page.properties_updated",
         "entity": { "id": page_id, "type": "page" },
         "data": {

@@ -9,7 +9,7 @@ use axum::{
     routing::post,
     Router,
 };
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use constant_time_eq::constant_time_eq;
 use hmac::{Hmac, Mac};
 use serde_json::json;
@@ -19,8 +19,11 @@ use tokio::sync::Mutex;
 use tracing::{error, info, warn};
 
 const MAX_BODY_BYTES: usize = 1024 * 1024; // 1MB safety cap
-const PER_IP_LIMIT: u32 = 60;
+const PER_IP_LIMIT: u32 = 60; // per minute
 const PER_IP_BURST: u32 = 10;
+const GLOBAL_LIMIT: u32 = 200; // per minute
+const GLOBAL_BURST: u32 = 20;
+const MAX_SKEW_SECS: i64 = 300; // 5 minutes freshness window
 
 #[derive(Clone)]
 pub struct AppState {
@@ -30,12 +33,13 @@ pub struct AppState {
     pub schema: Arc<notion::PropertySchema>,
     pub signing_secret: String,
     pub rate_limits: Arc<Mutex<HashMap<String, WindowCounter>>>,
+    pub global_limit: Arc<Mutex<WindowCounter>>,
 }
 
 #[derive(Clone, Debug)]
 pub struct WindowCounter {
-    window: u64,
-    count: u32,
+    pub window: u64,
+    pub count: u32,
 }
 
 pub async fn run_server() -> Result<()> {
@@ -61,6 +65,10 @@ pub async fn run_server() -> Result<()> {
     info!("Webhook signature will use NOTION_WEBHOOK_SECRET");
 
     let rate_limits = Arc::new(Mutex::new(HashMap::new()));
+    let global_limit = Arc::new(Mutex::new(WindowCounter {
+        window: 0,
+        count: 0,
+    }));
 
     let state = AppState {
         notion,
@@ -69,6 +77,7 @@ pub async fn run_server() -> Result<()> {
         schema,
         signing_secret,
         rate_limits,
+        global_limit,
     };
 
     let app = build_router(state);
@@ -91,7 +100,7 @@ async fn handle_webhook(
     body: Bytes,
 ) -> StatusCode {
     let ip = extract_ip(&headers);
-    if !check_rate_limit(&state, &ip).await {
+    if !check_rate_limit(&state, &ip).await || !check_global_rate_limit(&state).await {
         warn!("Rate limit exceeded for {}", ip);
         return StatusCode::TOO_MANY_REQUESTS;
     }
@@ -135,6 +144,11 @@ async fn handle_webhook(
     if payload.get("type").and_then(|v| v.as_str()) != Some("page.properties_updated") {
         warn!("Ignoring event with unsupported type");
         return StatusCode::OK;
+    }
+
+    if !is_fresh_timestamp(&payload) {
+        warn!("Rejecting request: stale or missing timestamp");
+        return StatusCode::BAD_REQUEST;
     }
 
     let updated_raw = payload
@@ -526,4 +540,32 @@ async fn check_rate_limit(state: &AppState, ip: &str) -> bool {
     }
     entry.count += 1;
     true
+}
+
+async fn check_global_rate_limit(state: &AppState) -> bool {
+    let window = (Utc::now().timestamp() / 60) as u64;
+    let mut guard = state.global_limit.lock().await;
+    if guard.window != window {
+        guard.window = window;
+        guard.count = 0;
+    }
+    if guard.count >= GLOBAL_LIMIT + GLOBAL_BURST {
+        return false;
+    }
+    guard.count += 1;
+    true
+}
+
+fn is_fresh_timestamp(payload: &serde_json::Value) -> bool {
+    let ts_str = match payload.get("timestamp").and_then(|v| v.as_str()) {
+        Some(v) => v,
+        None => return false,
+    };
+    let parsed: DateTime<Utc> = match ts_str.parse() {
+        Ok(v) => v,
+        Err(_) => return false,
+    };
+    let now = Utc::now();
+    let diff = (now - parsed).num_seconds().abs();
+    diff <= MAX_SKEW_SECS
 }
