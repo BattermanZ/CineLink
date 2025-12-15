@@ -5,7 +5,7 @@ use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::env;
 
-const NOTION_VERSION: &str = "2022-06-28";
+const NOTION_VERSION: &str = "2025-09-03";
 
 #[derive(Debug, Clone)]
 pub struct NotionClient {
@@ -29,6 +29,7 @@ pub enum PropertyType {
     Number,
     Select,
     MultiSelect,
+    Files,
     Date,
     Unknown(String),
 }
@@ -71,15 +72,29 @@ impl NotionApi for NotionClient {
             .header("Notion-Version", NOTION_VERSION)
             .send()
             .await
-            .context("Failed to fetch Notion database")?
-            .error_for_status()
-            .context("Notion database request failed")?;
+            .context("Failed to fetch Notion database")?;
 
-        let body: Value = res.json().await.context("Failed to parse database JSON")?;
+        let status = res.status();
+        let body_text = res
+            .text()
+            .await
+            .context("Failed to read Notion response body")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion database request failed (status {}): {}",
+                status,
+                body_text
+            ));
+        }
+
+        let body: Value =
+            serde_json::from_str(&body_text).context("Failed to parse database JSON")?;
         let props = body
             .get("properties")
             .and_then(|p| p.as_object())
-            .context("No properties in database response")?;
+            .ok_or_else(|| {
+                anyhow::anyhow!(format!("No properties in database response: {}", body_text))
+            })?;
 
         let mut types = HashMap::new();
         let mut title_property = None;
@@ -93,6 +108,7 @@ impl NotionApi for NotionClient {
                     "number" => PropertyType::Number,
                     "select" => PropertyType::Select,
                     "multi_select" => PropertyType::MultiSelect,
+                    "files" => PropertyType::Files,
                     "date" => PropertyType::Date,
                     other => PropertyType::Unknown(other.to_string()),
                 };
@@ -118,27 +134,50 @@ impl NotionApi for NotionClient {
             .header("Notion-Version", NOTION_VERSION)
             .send()
             .await
-            .context("Failed to fetch Notion page")?
-            .error_for_status()
-            .context("Notion page request failed")?;
+            .context("Failed to fetch Notion page")?;
 
-        res.json().await.context("Failed to parse page JSON")
+        let status = res.status();
+        let text = res
+            .text()
+            .await
+            .context("Failed to read Notion page response")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion page request failed (status {}): {}",
+                status,
+                text
+            ));
+        }
+
+        serde_json::from_str(&text).context("Failed to parse page JSON")
     }
 
     async fn update_page(&self, page_id: &str, properties: Map<String, Value>) -> Result<()> {
         let url = format!("https://api.notion.com/v1/pages/{}", page_id);
         let body = json!({ "properties": properties });
 
-        self.client
+        let res = self
+            .client
             .patch(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .header("Notion-Version", NOTION_VERSION)
             .json(&body)
             .send()
             .await
-            .context("Failed to update Notion page")?
-            .error_for_status()
-            .context("Notion page update failed")?;
+            .context("Failed to update Notion page")?;
+
+        let status = res.status();
+        let text = res
+            .text()
+            .await
+            .context("Failed to read Notion update response")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion page update failed (status {}): {}",
+                status,
+                text
+            ));
+        }
 
         Ok(())
     }
@@ -220,6 +259,31 @@ pub fn set_title(
     }
 }
 
+pub fn merge_schema_from_props(schema: &mut PropertySchema, props: &Map<String, Value>) {
+    for (name, prop) in props {
+        if schema.types.contains_key(name) {
+            continue;
+        }
+        if let Some(t) = prop.get("type").and_then(|v| v.as_str()) {
+            let mapped = match t {
+                "title" => PropertyType::Title,
+                "rich_text" => PropertyType::RichText,
+                "url" => PropertyType::Url,
+                "number" => PropertyType::Number,
+                "select" => PropertyType::Select,
+                "multi_select" => PropertyType::MultiSelect,
+                "files" => PropertyType::Files,
+                "date" => PropertyType::Date,
+                other => PropertyType::Unknown(other.to_string()),
+            };
+            if mapped == PropertyType::Title && schema.title_property.is_none() {
+                schema.title_property = Some(name.clone());
+            }
+            schema.types.insert(name.clone(), mapped);
+        }
+    }
+}
+
 pub fn set_value(
     target: &mut Map<String, Value>,
     property: &str,
@@ -258,6 +322,15 @@ pub fn set_value(
                 other => vec![json!({ "name": string_value(other) })],
             }
         })),
+        PropertyType::Files => string_value_opt(val).map(|s| {
+            json!({
+                "files": [{
+                    "name": "external",
+                    "type": "external",
+                    "external": { "url": s }
+                }]
+            })
+        }),
         PropertyType::Date => string_value_opt(val).map(|s| json!({ "date": { "start": s } })),
     };
 

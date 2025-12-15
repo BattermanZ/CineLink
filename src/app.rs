@@ -1,4 +1,5 @@
 use crate::notion::{self, NotionApi, NotionClient};
+use crate::notion_fallback::fallback_schema;
 use crate::tmdb::{self, TmdbApi, TmdbClient};
 use anyhow::Result;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
@@ -16,7 +17,13 @@ pub struct AppState {
 
 pub async fn run_server() -> Result<()> {
     let notion: Arc<dyn NotionApi> = Arc::new(NotionClient::from_env()?);
-    let schema = Arc::new(notion.fetch_property_schema().await?);
+    let schema = match notion.fetch_property_schema().await {
+        Ok(s) => Arc::new(s),
+        Err(e) => {
+            tracing::warn!("Failed to fetch Notion schema, using fallback: {}", e);
+            Arc::new(fallback_schema())
+        }
+    };
     let title_property = schema
         .title_property
         .clone()
@@ -145,73 +152,77 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         state.tmdb.fetch_movie(movie_id).await?
     };
 
+    // Merge schema from live page properties (handles cases where DB schema is unavailable).
+    let mut schema = (*state.schema).clone();
+    notion::merge_schema_from_props(&mut schema, props);
+
     let mut updates = serde_json::Map::new();
     notion::set_title(
         &mut updates,
         &state.title_property,
         &tmdb_media.name,
-        &state.schema,
+        &schema,
     );
 
     notion::set_value(
         &mut updates,
         "Eng Name",
         Some(notion::ValueInput::Text(tmdb_media.eng_name)),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Synopsis",
         tmdb_media.synopsis.map(notion::ValueInput::Text),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Genre",
         Some(notion::ValueInput::StringList(tmdb_media.genres)),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Cast",
         Some(notion::ValueInput::StringList(tmdb_media.cast)),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Director",
         Some(notion::ValueInput::StringList(tmdb_media.director)),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Content Rating",
         tmdb_media.content_rating.map(notion::ValueInput::Text),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Country of origin",
         Some(notion::ValueInput::StringList(tmdb_media.country_of_origin)),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Language",
         tmdb_media.language.map(notion::ValueInput::Text),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Release Date",
         tmdb_media.release_date.map(notion::ValueInput::Date),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "Year",
         tmdb_media.year.map(notion::ValueInput::Text),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
@@ -219,39 +230,39 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         tmdb_media
             .runtime_minutes
             .map(|r| notion::ValueInput::Number(r as f64)),
-        &state.schema,
+        &schema,
     );
     if let Some(episodes) = tmdb_media.episodes {
         notion::set_value(
             &mut updates,
             "Episodes",
             Some(notion::ValueInput::Number(episodes as f64)),
-            &state.schema,
+            &schema,
         );
     }
     notion::set_value(
         &mut updates,
         "Trailer",
         tmdb_media.trailer.map(notion::ValueInput::Url),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "IMG",
         tmdb_media.poster.map(notion::ValueInput::Url),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "IMDb Page",
         tmdb_media.imdb_page.map(notion::ValueInput::Url),
-        &state.schema,
+        &schema,
     );
     notion::set_value(
         &mut updates,
         "ID",
         Some(notion::ValueInput::Number(tmdb_media.id as f64)),
-        &state.schema,
+        &schema,
     );
 
     state.notion.update_page(page_id, updates).await?;
