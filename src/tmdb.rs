@@ -56,6 +56,30 @@ impl TmdbClient {
             api_key,
         })
     }
+
+    async fn fetch_movie_images(&self, id: i32, lang: &str) -> Result<ImageResponse> {
+        let url = format!(
+            "{TMDB_BASE}/movie/{id}/images?include_image_language={lang},null&api_key={}",
+            self.api_key
+        );
+        self.get_json(&url).await
+    }
+
+    async fn fetch_show_images(&self, id: i32, lang: &str) -> Result<ImageResponse> {
+        let url = format!(
+            "{TMDB_BASE}/tv/{id}/images?include_image_language={lang},null&api_key={}",
+            self.api_key
+        );
+        self.get_json(&url).await
+    }
+
+    async fn fetch_season_images(&self, id: i32, season: i32, lang: &str) -> Result<ImageResponse> {
+        let url = format!(
+            "{TMDB_BASE}/tv/{id}/season/{season}/images?include_image_language={lang},null&api_key={}",
+            self.api_key
+        );
+        self.get_json(&url).await
+    }
 }
 
 #[async_trait]
@@ -174,10 +198,25 @@ impl TmdbApi for TmdbClient {
             .collect::<Vec<_>>();
         let cast = top_names(&credits.cast, 10);
         let trailer = select_trailer(&videos);
-        let poster = detail
-            .poster_path
-            .as_ref()
-            .map(|p| format!("{POSTER_BASE}{p}"));
+        let preferred_lang = if detail.original_language == "fr" {
+            Some("fr")
+        } else if detail.original_language == "es" {
+            Some("es")
+        } else {
+            None
+        };
+
+        let poster = match preferred_lang {
+            Some(lang) => {
+                let images = self.fetch_movie_images(id, lang).await.ok();
+                select_poster(images.as_ref(), Some(lang))
+                    .or_else(|| detail.poster_path.as_ref().map(|p| format!("{POSTER_BASE}{p}")))
+            }
+            None => detail
+                .poster_path
+                .as_ref()
+                .map(|p| format!("{POSTER_BASE}{p}")),
+        };
         let backdrop = detail
             .backdrop_path
             .as_ref()
@@ -276,11 +315,34 @@ impl TmdbApi for TmdbClient {
         let content_rating = us_rating(&ratings);
         let cast = top_names(&credits.cast, 10);
         let trailer = select_trailer(&videos).or_else(|| select_trailer(&show_videos));
-        let poster = season_detail
-            .poster_path
-            .as_ref()
-            .or(show.poster_path.as_ref())
-            .map(|p| format!("{POSTER_BASE}{p}"));
+        let preferred_lang = if show.original_language == "fr" {
+            Some("fr")
+        } else if show.original_language == "es" {
+            Some("es")
+        } else {
+            None
+        };
+
+        let poster = match preferred_lang {
+            Some(lang) => {
+                let season_images = self.fetch_season_images(id, season, lang).await.ok();
+                let show_images = self.fetch_show_images(id, lang).await.ok();
+                select_poster(season_images.as_ref(), Some(lang))
+                    .or_else(|| select_poster(show_images.as_ref(), Some(lang)))
+                    .or_else(|| {
+                        season_detail
+                            .poster_path
+                            .as_ref()
+                            .or(show.poster_path.as_ref())
+                            .map(|p| format!("{POSTER_BASE}{p}"))
+                    })
+            }
+            None => season_detail
+                .poster_path
+                .as_ref()
+                .or(show.poster_path.as_ref())
+                .map(|p| format!("{POSTER_BASE}{p}")),
+        };
         let backdrop = show
             .backdrop_path
             .as_ref()
@@ -458,6 +520,8 @@ struct Creator {
 
 #[derive(Debug, Deserialize)]
 struct SeasonDetail {
+    #[allow(dead_code)]
+    name: Option<String>,
     overview: String,
     air_date: Option<String>,
     poster_path: Option<String>,
@@ -530,6 +594,17 @@ struct Video {
     #[serde(rename = "type")]
     video_type: String,
     key: String,
+}
+
+#[derive(Debug, Deserialize)]
+struct ImageResponse {
+    posters: Vec<Image>,
+}
+
+#[derive(Debug, Deserialize)]
+struct Image {
+    file_path: String,
+    iso_639_1: Option<String>,
 }
 
 pub fn parse_season_number(input: &str) -> Option<i32> {
@@ -666,4 +741,16 @@ fn language_name(code: &str) -> Option<String> {
         _ => return Some(code.to_string()),
     };
     Some(name.to_string())
+}
+
+fn select_poster(images: Option<&ImageResponse>, preferred_lang: Option<&str>) -> Option<String> {
+    let posters = images?.posters.as_slice();
+    let first_match = preferred_lang.and_then(|lang| {
+        posters
+            .iter()
+            .find(|p| p.iso_639_1.as_deref() == Some(lang))
+            .map(|p| p.file_path.clone())
+    });
+    let fallback = posters.first().map(|p| p.file_path.clone());
+    first_match.or(fallback).map(|p| format!("{POSTER_BASE}{p}"))
 }
