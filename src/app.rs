@@ -69,14 +69,21 @@ async fn handle_webhook(
         .cloned()
         .unwrap_or_default();
 
-    let updated = updated_raw
+    let updated_decoded: Vec<String> = updated_raw
         .iter()
         .filter_map(|v| v.as_str())
-        .collect::<Vec<_>>();
+        .map(|s| match urlencoding::decode(s) {
+            Ok(decoded) => decoded.into_owned(),
+            Err(_) => s.to_string(),
+        })
+        .collect();
 
-    let should_process = updated.iter().any(|p| {
-        let lower = p.to_lowercase();
-        lower == "title" || lower == "season"
+    let should_process = updated_raw.iter().any(|v| {
+        v.as_str() == Some("Siv%5D")
+            || updated_decoded.iter().any(|p| {
+                let lower = p.to_lowercase();
+                lower == "title" || lower == "season"
+            })
     });
     if !should_process {
         return StatusCode::OK;
