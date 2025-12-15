@@ -117,6 +117,7 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
     }
 
     let clean_title = raw_title.trim_end_matches(';').trim().to_string();
+    info!("Received trigger for page '{}'", raw_title);
 
     let type_value = notion::extract_select(props, "Type");
     let is_tv = type_value
@@ -161,12 +162,20 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
                 return Ok(());
             }
         };
+        info!(
+            "Fetching TMDB data for TV '{}', season {} (matched id {:?})",
+            clean_title, season, resolved_id
+        );
         let show_id = match resolved_id {
             Some(id) => id,
             None => state.tmdb.resolve_tv_id(&clean_title).await?,
         };
         state.tmdb.fetch_tv_season(show_id, season).await?
     } else {
+        info!(
+            "Fetching TMDB data for Movie '{}' (matched id {:?})",
+            clean_title, resolved_id
+        );
         let movie_id = match resolved_id {
             Some(id) => id,
             None => state.tmdb.resolve_movie_id(&clean_title).await?,
@@ -174,11 +183,7 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         state.tmdb.fetch_movie(movie_id).await?
     };
 
-    tracing::info!(
-        "Starting update for page '{}' -> '{}'",
-        raw_title,
-        tmdb_media.name
-    );
+    info!("Matched '{}' -> '{}'", raw_title, tmdb_media.name);
 
     let mut updates = serde_json::Map::new();
     notion::set_title(
@@ -303,14 +308,8 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         })
     });
 
-    state
-        .notion
-        .update_page(page_id, updates, icon, cover)
-        .await?;
-    tracing::info!(
-        "Finished update for page '{}' -> '{}'",
-        raw_title,
-        tmdb_media.name
-    );
+    info!("Updating Notion page '{}'", tmdb_media.name);
+    state.notion.update_page(page_id, updates, icon, cover).await?;
+    info!("Finished update for page '{}' -> '{}'", raw_title, tmdb_media.name);
     Ok(())
 }
