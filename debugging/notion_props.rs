@@ -4,7 +4,7 @@
 use anyhow::{Context, Result};
 use dotenvy::dotenv;
 use reqwest::Client;
-use serde_json::{Map, Value};
+use serde_json::Value;
 use std::env;
 
 #[tokio::main]
@@ -12,10 +12,10 @@ async fn main() -> Result<()> {
     // Load .env if present for local runs.
     dotenv().ok();
 
-    let notion_api_key = env::var("NOTION_API_KEY")
-        .context("Missing NOTION_API_KEY in environment")?;
-    let notion_database_id = env::var("NOTION_DATABASE_ID")
-        .context("Missing NOTION_DATABASE_ID in environment")?;
+    let notion_api_key =
+        env::var("NOTION_API_KEY").context("Missing NOTION_API_KEY in environment")?;
+    let notion_database_id =
+        env::var("NOTION_DATABASE_ID").context("Missing NOTION_DATABASE_ID in environment")?;
 
     let client = Client::new();
     let url = format!("https://api.notion.com/v1/databases/{}", notion_database_id);
@@ -30,7 +30,10 @@ async fn main() -> Result<()> {
         .error_for_status()
         .context("Notion API returned an error status")?;
 
-    let body: Value = response.json().await.context("Failed to parse Notion response")?;
+    let body: Value = response
+        .json()
+        .await
+        .context("Failed to parse Notion response")?;
     let properties = body
         .get("properties")
         .and_then(|v| v.as_object())
