@@ -17,6 +17,8 @@ pub struct TmdbClient {
 pub trait TmdbApi: Send + Sync {
     async fn search_movie(&self, query: &str) -> Result<i32>;
     async fn search_tv(&self, query: &str) -> Result<i32>;
+    async fn resolve_movie_id(&self, query: &str) -> Result<i32>;
+    async fn resolve_tv_id(&self, query: &str) -> Result<i32>;
     async fn fetch_movie(&self, id: i32) -> Result<MediaData>;
     async fn fetch_tv_season(&self, id: i32, season: i32) -> Result<MediaData>;
 }
@@ -78,6 +80,18 @@ impl TmdbApi for TmdbClient {
             .ok_or_else(|| anyhow!("No TMDB movie found for '{}'", query))
     }
 
+    async fn resolve_movie_id(&self, query: &str) -> Result<i32> {
+        if let Some(id) = parse_tmdb_id(query) {
+            return Ok(id);
+        }
+        if let Some(imdb) = parse_imdb_id(query) {
+            if let Some(id) = self.find_imdb(&imdb, "movie").await? {
+                return Ok(id);
+            }
+        }
+        self.search_movie(query).await
+    }
+
     async fn search_tv(&self, query: &str) -> Result<i32> {
         #[derive(Deserialize)]
         struct SearchResult {
@@ -98,6 +112,18 @@ impl TmdbApi for TmdbClient {
             .first()
             .map(|r| r.id)
             .ok_or_else(|| anyhow!("No TMDB TV show found for '{}'", query))
+    }
+
+    async fn resolve_tv_id(&self, query: &str) -> Result<i32> {
+        if let Some(id) = parse_tmdb_id(query) {
+            return Ok(id);
+        }
+        if let Some(imdb) = parse_imdb_id(query) {
+            if let Some(id) = self.find_imdb(&imdb, "tv").await? {
+                return Ok(id);
+            }
+        }
+        self.search_tv(query).await
     }
 
     async fn fetch_movie(&self, id: i32) -> Result<MediaData> {
@@ -301,6 +327,33 @@ impl TmdbClient {
         let parsed: T = serde_json::from_str(&text).context("JSON parse failed")?;
         Ok(parsed)
     }
+
+    async fn find_imdb(&self, imdb_id: &str, media: &str) -> Result<Option<i32>> {
+        #[derive(Deserialize)]
+        struct FindResponse {
+            movie_results: Option<Vec<FindResult>>,
+            tv_results: Option<Vec<FindResult>>,
+        }
+        #[derive(Deserialize)]
+        struct FindResult {
+            id: i32,
+        }
+
+        let url = format!(
+            "{TMDB_BASE}/find/{imdb_id}?external_source=imdb_id&language=en-US&api_key={}",
+            self.api_key
+        );
+        let data: FindResponse = self.get_json(&url).await?;
+        let id = match media {
+            "movie" => data
+                .movie_results
+                .and_then(|mut v| v.pop())
+                .map(|r| r.id),
+            "tv" => data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id),
+            _ => None,
+        };
+        Ok(id)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -431,6 +484,22 @@ pub fn parse_season_number(input: &str) -> Option<i32> {
         return rest.trim().parse::<i32>().ok();
     }
     input.trim().parse().ok()
+}
+
+pub fn parse_tmdb_id(input: &str) -> Option<i32> {
+    if input.chars().all(|c| c.is_ascii_digit()) {
+        return input.parse().ok();
+    }
+    None
+}
+
+pub fn parse_imdb_id(input: &str) -> Option<String> {
+    let lower = input.trim().to_lowercase();
+    if lower.starts_with("tt") && lower.len() > 2 && lower[2..].chars().all(|c| c.is_ascii_digit())
+    {
+        return Some(lower);
+    }
+    None
 }
 
 fn us_cert_from_release_dates(data: &ReleaseDates) -> Option<String> {

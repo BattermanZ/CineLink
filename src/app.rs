@@ -138,22 +138,12 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         None
     };
 
-    let tmdb_id = notion::extract_number(props, "ID")
-        .map(|n| n as i32)
-        .or_else(|| notion::extract_rich_text(props, "ID").and_then(|s| s.parse().ok()));
-
     let tmdb_media = if is_tv {
         let season = season_number.expect("season required");
-        let show_id = match tmdb_id {
-            Some(id) => id,
-            None => state.tmdb.search_tv(&clean_title).await?,
-        };
+        let show_id = state.tmdb.resolve_tv_id(&clean_title).await?;
         state.tmdb.fetch_tv_season(show_id, season).await?
     } else {
-        let movie_id = match tmdb_id {
-            Some(id) => id,
-            None => state.tmdb.search_movie(&clean_title).await?,
-        };
+        let movie_id = state.tmdb.resolve_movie_id(&clean_title).await?;
         state.tmdb.fetch_movie(movie_id).await?
     };
 

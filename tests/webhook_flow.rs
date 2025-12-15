@@ -58,6 +58,18 @@ impl TmdbApi for FakeTmdb {
     async fn search_tv(&self, _query: &str) -> anyhow::Result<i32> {
         Ok(self.tv.id)
     }
+    async fn resolve_movie_id(&self, query: &str) -> anyhow::Result<i32> {
+        if query == "tt12345" {
+            return Ok(self.movie.id);
+        }
+        self.search_movie(query).await
+    }
+    async fn resolve_tv_id(&self, query: &str) -> anyhow::Result<i32> {
+        if query == "tt99999" {
+            return Ok(self.tv.id);
+        }
+        self.search_tv(query).await
+    }
     async fn fetch_movie(&self, id: i32) -> anyhow::Result<MediaData> {
         assert_eq!(id, self.movie.id);
         Ok(self.movie.clone())
@@ -372,4 +384,42 @@ async fn updates_tv_with_season() {
         .and_then(|e| e.get("url"))
         .and_then(|u| u.as_str());
     assert!(cover_url.is_none()); // tv fixture has no backdrop
+}
+
+#[tokio::test]
+async fn resolves_imdb_id_for_movie() {
+    let page = make_page("tt12345 ;", "Movie", None);
+    let movie = tmdb_movie();
+    let (app, notion) = app_with_mocks(
+        page.clone(),
+        FakeTmdb {
+            movie: movie.clone(),
+            tv: tmdb_tv(),
+        },
+    );
+
+    let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
+    let res = app
+        .oneshot(
+            Request::post("/")
+                .header("content-type", "application/json")
+                .body(Body::from(payload))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let updates = notion.updates.lock().unwrap();
+    assert_eq!(updates.len(), 1);
+    let (_id, props, _, _) = &updates[0];
+    let name = props
+        .get("Name")
+        .and_then(|p| p.get("title"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(name, Some(movie.name.as_str()));
 }
