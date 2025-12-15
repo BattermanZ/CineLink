@@ -1,7 +1,7 @@
 use crate::notion::{self, NotionApi, NotionClient};
 use crate::notion_fallback::fallback_schema;
 use crate::tmdb::{self, TmdbApi, TmdbClient};
-use anyhow::{Context, Result};
+use anyhow::Result;
 use axum::{
     body::Bytes,
     extract::State,
@@ -43,8 +43,11 @@ pub async fn run_server() -> Result<()> {
     info!("Using title property: {}", title_property);
 
     let tmdb: Arc<dyn TmdbApi> = Arc::new(TmdbClient::from_env()?);
-    let signing_secret =
-        env::var("NOTION_WEBHOOK_SECRET").context("NOTION_WEBHOOK_SECRET not set")?;
+    let signing_secret = env::var("NOTION_WEBHOOK_SECRET")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .ok_or_else(|| anyhow::anyhow!("NOTION_WEBHOOK_SECRET must be set"))?;
+    info!("Webhook signature will use NOTION_WEBHOOK_SECRET");
 
     let state = AppState {
         notion,
@@ -74,23 +77,36 @@ async fn handle_webhook(
     body: Bytes,
 ) -> StatusCode {
     if body.len() > MAX_BODY_BYTES {
+        warn!(
+            "Rejecting request: body too large ({} bytes > {} bytes)",
+            body.len(),
+            MAX_BODY_BYTES
+        );
         return StatusCode::PAYLOAD_TOO_LARGE;
     }
 
     // Enforce content type and version
-    if headers
+    let content_type_ok = headers
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
         .map(|v| v.starts_with("application/json"))
-        != Some(true)
-    {
+        == Some(true);
+    if !content_type_ok {
+        warn!(
+            "Rejecting request: unsupported content-type {:?}",
+            headers.get(header::CONTENT_TYPE)
+        );
         return StatusCode::UNSUPPORTED_MEDIA_TYPE;
     }
 
-    if headers.get("Notion-Version").and_then(|v| v.to_str().ok())
-        != Some(crate::notion::NOTION_VERSION)
-    {
-        return StatusCode::BAD_REQUEST;
+    let version = headers.get("Notion-Version").and_then(|v| v.to_str().ok());
+    if let Some(v) = version {
+        if v != crate::notion::NOTION_VERSION {
+            warn!("Rejecting request: invalid Notion-Version {:?}", v);
+            return StatusCode::BAD_REQUEST;
+        }
+    } else {
+        warn!("Notion-Version header missing; proceeding (webhooks may omit it)");
     }
 
     if !verify_notion_signature(&headers, &body, &state.signing_secret) {
@@ -100,10 +116,14 @@ async fn handle_webhook(
 
     let payload: serde_json::Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
-        Err(_) => return StatusCode::BAD_REQUEST,
+        Err(e) => {
+            warn!("Rejecting request: invalid JSON body: {}", e);
+            return StatusCode::BAD_REQUEST;
+        }
     };
 
     if payload.get("type").and_then(|v| v.as_str()) != Some("page.properties_updated") {
+        warn!("Ignoring event with unsupported type");
         return StatusCode::OK;
     }
 
@@ -131,6 +151,10 @@ async fn handle_webhook(
             })
     });
     if !should_process {
+        info!(
+            "Ignoring webhook; updated properties {:?} not in [title, season]",
+            updated_decoded
+        );
         return StatusCode::OK;
     }
 
