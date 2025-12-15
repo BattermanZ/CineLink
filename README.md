@@ -1,4 +1,4 @@
-# 🎬 CineLink v3.1.0
+# 🎬 CineLink v4.0.0
 
 Synchronize your movie ratings between Plex and Notion, with added support for TV shows! 📺
 
