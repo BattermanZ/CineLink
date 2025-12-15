@@ -4,6 +4,9 @@ use reqwest::Client;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::env;
+use tracing::warn;
+
+use crate::notion_fallback::fallback_schema;
 
 const NOTION_VERSION: &str = "2025-09-03";
 
@@ -95,40 +98,18 @@ impl NotionApi for NotionClient {
 
         let body: Value =
             serde_json::from_str(&body_text).context("Failed to parse database JSON")?;
-        let props = body
-            .get("properties")
-            .and_then(|p| p.as_object())
-            .ok_or_else(|| {
-                anyhow::anyhow!(format!("No properties in database response: {}", body_text))
-            })?;
-
-        let mut types = HashMap::new();
-        let mut title_property = None;
-
-        for (name, def) in props {
-            if let Some(t) = def.get("type").and_then(|v| v.as_str()) {
-                let mapped = match t {
-                    "title" => PropertyType::Title,
-                    "rich_text" => PropertyType::RichText,
-                    "url" => PropertyType::Url,
-                    "number" => PropertyType::Number,
-                    "select" => PropertyType::Select,
-                    "multi_select" => PropertyType::MultiSelect,
-                    "files" => PropertyType::Files,
-                    "date" => PropertyType::Date,
-                    other => PropertyType::Unknown(other.to_string()),
-                };
-                if mapped == PropertyType::Title {
-                    title_property = Some(name.clone());
-                }
-                types.insert(name.clone(), mapped);
-            }
+        if let Some(props) = body.get("properties").and_then(|p| p.as_object()) {
+            return Ok(schema_from_properties(props));
         }
 
-        Ok(PropertySchema {
-            types,
-            title_property,
-        })
+        // Fallback: query first page to infer property types (Notion 2025-09-03 may omit properties for synced DBs).
+        match fetch_schema_via_query(&self.client, &self.api_key, &self.database_id).await {
+            Ok(inferred) => Ok(inferred),
+            Err(e) => {
+                warn!("Failed to infer schema via query: {}. Using fallback schema.", e);
+                Ok(fallback_schema())
+            }
+        }
     }
 
     async fn fetch_page(&self, page_id: &str) -> Result<Value> {
@@ -302,6 +283,75 @@ pub fn merge_schema_from_props(schema: &mut PropertySchema, props: &Map<String, 
     }
 }
 
+fn schema_from_properties(props: &Map<String, Value>) -> PropertySchema {
+    let mut types = HashMap::new();
+    let mut title_property = None;
+
+    for (name, def) in props {
+        if let Some(t) = def.get("type").and_then(|v| v.as_str()) {
+            let mapped = match t {
+                "title" => PropertyType::Title,
+                "rich_text" => PropertyType::RichText,
+                "url" => PropertyType::Url,
+                "number" => PropertyType::Number,
+                "select" => PropertyType::Select,
+                "multi_select" => PropertyType::MultiSelect,
+                "files" => PropertyType::Files,
+                "date" => PropertyType::Date,
+                other => PropertyType::Unknown(other.to_string()),
+            };
+            if mapped == PropertyType::Title {
+                title_property = Some(name.clone());
+            }
+            types.insert(name.clone(), mapped);
+        }
+    }
+
+    PropertySchema {
+        types,
+        title_property,
+    }
+}
+
+async fn fetch_schema_via_query(
+    client: &Client,
+    api_key: &str,
+    database_id: &str,
+) -> Result<PropertySchema> {
+    let url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
+    let res = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Notion-Version", NOTION_VERSION)
+        .json(&json!({ "page_size": 1 }))
+        .send()
+        .await
+        .context("Failed to query Notion database for schema inference")?;
+
+    let status = res.status();
+    let text = res
+        .text()
+        .await
+        .context("Failed to read Notion query response")?;
+    if !status.is_success() {
+        return Err(anyhow::anyhow!(
+            "Notion query failed (status {}): {}",
+            status,
+            text
+        ));
+    }
+
+    let body: Value = serde_json::from_str(&text).context("Failed to parse Notion query JSON")?;
+    let props = body
+        .get("results")
+        .and_then(|r| r.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|first| first.get("properties"))
+        .and_then(|p| p.as_object())
+        .ok_or_else(|| anyhow::anyhow!("No properties found in Notion query response"))?;
+
+    Ok(schema_from_properties(props))
+}
 pub fn set_value(
     target: &mut Map<String, Value>,
     property: &str,

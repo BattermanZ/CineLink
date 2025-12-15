@@ -12,7 +12,7 @@ use tower::util::ServiceExt;
 struct FakeNotion {
     schema: PropertySchema,
     pages: Mutex<HashMap<String, Value>>,
-    updates: Mutex<Vec<(String, Map<String, Value>)>>,
+    updates: Mutex<Vec<(String, Map<String, Value>, Option<Value>, Option<Value>)>>,
 }
 
 #[async_trait::async_trait]
@@ -40,7 +40,7 @@ impl NotionApi for FakeNotion {
         self.updates
             .lock()
             .unwrap()
-            .push((page_id.to_string(), properties));
+            .push((page_id.to_string(), properties, _icon, _cover));
         Ok(())
     }
 }
@@ -262,7 +262,7 @@ async fn updates_movie_when_title_has_semicolon() {
 
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
-    let (_id, props) = &updates[0];
+    let (_id, props, icon, cover) = &updates[0];
     let name = props
         .get("Name")
         .and_then(|p| p.get("title"))
@@ -277,6 +277,18 @@ async fn updates_movie_when_title_has_semicolon() {
         .and_then(|p| p.get("url"))
         .and_then(|v| v.as_str());
     assert_eq!(imdb, movie.imdb_page.as_deref());
+    let icon_url = icon
+        .as_ref()
+        .and_then(|i| i.get("external"))
+        .and_then(|e| e.get("url"))
+        .and_then(|u| u.as_str());
+    assert_eq!(icon_url, movie.poster.as_deref());
+    let cover_url = cover
+        .as_ref()
+        .and_then(|c| c.get("external"))
+        .and_then(|e| e.get("url"))
+        .and_then(|u| u.as_str());
+    assert!(cover_url.is_none()); // movie fixture has no backdrop
 }
 
 #[tokio::test]
@@ -333,7 +345,7 @@ async fn updates_tv_with_season() {
 
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
-    let (_id, props) = &updates[0];
+    let (_id, props, icon, cover) = &updates[0];
     let name = props
         .get("Name")
         .and_then(|p| p.get("title"))
@@ -348,4 +360,16 @@ async fn updates_tv_with_season() {
         .and_then(|p| p.get("number"))
         .and_then(|v| v.as_f64());
     assert_eq!(episodes, tv.episodes.map(|e| e as f64));
+    let icon_url = icon
+        .as_ref()
+        .and_then(|i| i.get("external"))
+        .and_then(|e| e.get("url"))
+        .and_then(|u| u.as_str());
+    assert_eq!(icon_url, tv.poster.as_deref());
+    let cover_url = cover
+        .as_ref()
+        .and_then(|c| c.get("external"))
+        .and_then(|e| e.get("url"))
+        .and_then(|u| u.as_str());
+    assert!(cover_url.is_none()); // tv fixture has no backdrop
 }
