@@ -168,9 +168,39 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         );
         let show_id = match resolved_id {
             Some(id) => id,
-            None => state.tmdb.resolve_tv_id(&clean_title).await?,
+            None => match state.tmdb.resolve_tv_id(&clean_title).await {
+                Ok(id) => id,
+                Err(e) => {
+                    warn!("No TMDB match for TV '{}': {}", clean_title, e);
+                    set_error_title(
+                        &state.notion,
+                        page_id,
+                        &state.title_property,
+                        &schema,
+                        raw_title,
+                        "No TMDB TV match",
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            },
         };
-        state.tmdb.fetch_tv_season(show_id, season).await?
+        match state.tmdb.fetch_tv_season(show_id, season).await {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("Failed to fetch TMDB TV season for '{}': {}", clean_title, e);
+                set_error_title(
+                    &state.notion,
+                    page_id,
+                    &state.title_property,
+                    &schema,
+                    raw_title,
+                    "No TMDB TV match",
+                )
+                .await?;
+                return Ok(());
+            }
+        }
     } else {
         info!(
             "Fetching TMDB data for Movie '{}' (matched id {:?})",
@@ -178,9 +208,39 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         );
         let movie_id = match resolved_id {
             Some(id) => id,
-            None => state.tmdb.resolve_movie_id(&clean_title).await?,
+            None => match state.tmdb.resolve_movie_id(&clean_title).await {
+                Ok(id) => id,
+                Err(e) => {
+                    warn!("No TMDB match for Movie '{}': {}", clean_title, e);
+                    set_error_title(
+                        &state.notion,
+                        page_id,
+                        &state.title_property,
+                        &schema,
+                        raw_title,
+                        "No TMDB movie match",
+                    )
+                    .await?;
+                    return Ok(());
+                }
+            },
         };
-        state.tmdb.fetch_movie(movie_id).await?
+        match state.tmdb.fetch_movie(movie_id).await {
+            Ok(data) => data,
+            Err(e) => {
+                warn!("Failed to fetch TMDB movie for '{}': {}", clean_title, e);
+                set_error_title(
+                    &state.notion,
+                    page_id,
+                    &state.title_property,
+                    &schema,
+                    raw_title,
+                    "No TMDB movie match",
+                )
+                .await?;
+                return Ok(());
+            }
+        }
     };
 
     info!("Matched '{}' -> '{}'", raw_title, tmdb_media.name);
@@ -312,4 +372,21 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
     state.notion.update_page(page_id, updates, icon, cover).await?;
     info!("Finished update for page '{}' -> '{}'", raw_title, tmdb_media.name);
     Ok(())
+}
+
+async fn set_error_title(
+    notion: &Arc<dyn NotionApi>,
+    page_id: &str,
+    title_property: &str,
+    schema: &notion::PropertySchema,
+    original_title: String,
+    message: &str,
+) -> Result<()> {
+    let mut props = serde_json::Map::new();
+    let new_title = format!("{} | {}", original_title, message);
+    notion::set_title(&mut props, title_property, &new_title, schema);
+    notion
+        .update_page(page_id, props, None, None)
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to set error title: {}", e))
 }
