@@ -2,12 +2,16 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use cinelink::app::{build_router, AppState};
-use cinelink::notion::{NotionApi, PropertySchema, PropertyType};
+use cinelink::notion::{NotionApi, PropertySchema, PropertyType, NOTION_VERSION};
 use cinelink::tmdb::{MediaData, TmdbApi};
+use hmac::{Hmac, Mac};
 use serde_json::{json, Map, Value};
+use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use tower::util::ServiceExt;
+
+const WEBHOOK_SECRET: &str = "test-secret";
 
 struct FakeNotion {
     schema: PropertySchema,
@@ -216,6 +220,7 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
         tmdb: Arc::new(tmdb),
         title_property: "Name".to_string(),
         schema: Arc::new(schema),
+        signing_secret: WEBHOOK_SECRET.to_string(),
     };
 
     (build_router(state), notion)
@@ -232,6 +237,23 @@ fn webhook_payload(updated: &[&str], page_id: &str) -> String {
     .to_string()
 }
 
+fn sign_body(body: &str) -> String {
+    let mut mac =
+        Hmac::<Sha256>::new_from_slice(WEBHOOK_SECRET.as_bytes()).expect("static key is valid");
+    mac.update(body.as_bytes());
+    let digest = mac.finalize().into_bytes();
+    format!("sha256={}", hex::encode(digest))
+}
+
+fn signed_request(body: String) -> Request<Body> {
+    Request::post("/")
+        .header("content-type", "application/json")
+        .header("Notion-Version", NOTION_VERSION)
+        .header("x-notion-signature", sign_body(&body))
+        .body(Body::from(body))
+        .expect("failed to build request")
+}
+
 #[tokio::test]
 async fn ignores_when_title_has_no_semicolon() {
     let page = make_page("Movie Title", "Movie", None);
@@ -244,15 +266,7 @@ async fn ignores_when_title_has_no_semicolon() {
     );
 
     let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     assert!(notion.updates.lock().unwrap().is_empty());
 }
@@ -270,15 +284,7 @@ async fn updates_movie_when_title_has_semicolon() {
     );
 
     let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
     let updates = notion.updates.lock().unwrap();
@@ -324,15 +330,7 @@ async fn ignores_tv_without_season() {
     );
 
     let payload = webhook_payload(&["season"], page.get("id").unwrap().as_str().unwrap());
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
     assert!(notion.updates.lock().unwrap().is_empty());
 }
@@ -353,15 +351,7 @@ async fn updates_tv_with_season() {
         &["title", "season"],
         page.get("id").unwrap().as_str().unwrap(),
     );
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
     let updates = notion.updates.lock().unwrap();
@@ -408,15 +398,7 @@ async fn resolves_imdb_id_for_movie() {
     );
 
     let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
     let updates = notion.updates.lock().unwrap();
@@ -450,15 +432,7 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
         &["title", "season"],
         page.get("id").unwrap().as_str().unwrap(),
     );
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
     let updates = notion.updates.lock().unwrap();
@@ -515,15 +489,7 @@ async fn uses_original_title_for_french_with_eng_name_set() {
     );
 
     let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
-    let res = app
-        .oneshot(
-            Request::post("/")
-                .header("content-type", "application/json")
-                .body(Body::from(payload))
-                .unwrap(),
-        )
-        .await
-        .unwrap();
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
     let updates = notion.updates.lock().unwrap();

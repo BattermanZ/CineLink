@@ -1,12 +1,22 @@
 use crate::notion::{self, NotionApi, NotionClient};
 use crate::notion_fallback::fallback_schema;
 use crate::tmdb::{self, TmdbApi, TmdbClient};
-use anyhow::Result;
-use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use anyhow::{Context, Result};
+use axum::{
+    body::Bytes,
+    extract::State,
+    http::{header, HeaderMap, StatusCode},
+    routing::post,
+    Router,
+};
+use constant_time_eq::constant_time_eq;
+use hmac::{Hmac, Mac};
 use serde_json::json;
-use std::net::SocketAddr;
-use std::sync::Arc;
+use sha2::Sha256;
+use std::{env, net::SocketAddr, sync::Arc};
 use tracing::{error, info, warn};
+
+const MAX_BODY_BYTES: usize = 1024 * 1024; // 1MB safety cap
 
 #[derive(Clone)]
 pub struct AppState {
@@ -14,6 +24,7 @@ pub struct AppState {
     pub tmdb: Arc<dyn TmdbApi>,
     pub title_property: String,
     pub schema: Arc<notion::PropertySchema>,
+    pub signing_secret: String,
 }
 
 pub async fn run_server() -> Result<()> {
@@ -32,12 +43,15 @@ pub async fn run_server() -> Result<()> {
     info!("Using title property: {}", title_property);
 
     let tmdb: Arc<dyn TmdbApi> = Arc::new(TmdbClient::from_env()?);
+    let signing_secret =
+        env::var("NOTION_WEBHOOK_SECRET").context("NOTION_WEBHOOK_SECRET not set")?;
 
     let state = AppState {
         notion,
         tmdb,
         title_property,
         schema,
+        signing_secret,
     };
 
     let app = build_router(state);
@@ -56,8 +70,39 @@ pub fn build_router(state: AppState) -> Router {
 
 async fn handle_webhook(
     State(state): State<AppState>,
-    Json(payload): Json<serde_json::Value>,
+    headers: HeaderMap,
+    body: Bytes,
 ) -> StatusCode {
+    if body.len() > MAX_BODY_BYTES {
+        return StatusCode::PAYLOAD_TOO_LARGE;
+    }
+
+    // Enforce content type and version
+    if headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .map(|v| v.starts_with("application/json"))
+        != Some(true)
+    {
+        return StatusCode::UNSUPPORTED_MEDIA_TYPE;
+    }
+
+    if headers.get("Notion-Version").and_then(|v| v.to_str().ok())
+        != Some(crate::notion::NOTION_VERSION)
+    {
+        return StatusCode::BAD_REQUEST;
+    }
+
+    if !verify_notion_signature(&headers, &body, &state.signing_secret) {
+        warn!("Webhook signature verification failed");
+        return StatusCode::UNAUTHORIZED;
+    }
+
+    let payload: serde_json::Value = match serde_json::from_slice(&body) {
+        Ok(v) => v,
+        Err(_) => return StatusCode::BAD_REQUEST,
+    };
+
     if payload.get("type").and_then(|v| v.as_str()) != Some("page.properties_updated") {
         return StatusCode::OK;
     }
@@ -403,4 +448,25 @@ async fn set_error_title(
         .update_page(page_id, props, None, None)
         .await
         .map_err(|e| anyhow::anyhow!("Failed to set error title: {}", e))
+}
+
+fn verify_notion_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> bool {
+    let Some(sig_header) = headers
+        .get("x-notion-signature")
+        .and_then(|v| v.to_str().ok())
+    else {
+        return false;
+    };
+    let sig_hex = sig_header.strip_prefix("sha256=").unwrap_or(sig_header);
+    let Ok(expected) = hex::decode(sig_hex) else {
+        return false;
+    };
+
+    let Ok(mut mac) = Hmac::<Sha256>::new_from_slice(secret.as_bytes()) else {
+        return false;
+    };
+    mac.update(body);
+    let computed = mac.finalize().into_bytes();
+
+    expected.len() == computed.len() && constant_time_eq(&computed, &expected)
 }

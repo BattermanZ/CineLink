@@ -8,7 +8,7 @@ use tracing::warn;
 
 use crate::notion_fallback::fallback_schema;
 
-const NOTION_VERSION: &str = "2025-09-03";
+pub const NOTION_VERSION: &str = "2025-09-03";
 
 #[derive(Debug, Clone)]
 pub struct NotionClient {

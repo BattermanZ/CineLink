@@ -15,7 +15,12 @@ fn init_tracing() {
 }
 
 fn check_env() -> Result<()> {
-    let required = ["NOTION_API_KEY", "NOTION_DATABASE_ID", "TMDB_API_KEY"];
+    let required = [
+        "NOTION_API_KEY",
+        "NOTION_DATABASE_ID",
+        "TMDB_API_KEY",
+        "NOTION_WEBHOOK_SECRET",
+    ];
     for key in required {
         if env::var(key).is_err() {
             anyhow::bail!("Missing required environment variable: {}", key);
