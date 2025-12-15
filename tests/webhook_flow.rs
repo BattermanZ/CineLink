@@ -34,6 +34,8 @@ impl NotionApi for FakeNotion {
         &self,
         page_id: &str,
         properties: Map<String, Value>,
+        _icon: Option<Value>,
+        _cover: Option<Value>,
     ) -> anyhow::Result<()> {
         self.updates
             .lock()
@@ -142,7 +144,7 @@ fn tmdb_movie() -> MediaData {
         director: vec!["Director A".to_string()],
         content_rating: Some("PG-13".to_string()),
         country_of_origin: vec!["US".to_string()],
-        language: Some("en".to_string()),
+        language: Some("English".to_string()),
         release_date: Some("2024-01-01".to_string()),
         year: Some("2024".to_string()),
         runtime_minutes: Some(120.0),
@@ -165,7 +167,7 @@ fn tmdb_tv() -> MediaData {
         director: vec!["Creator B".to_string()],
         content_rating: Some("TV-MA".to_string()),
         country_of_origin: vec!["US".to_string()],
-        language: Some("en".to_string()),
+        language: Some("English".to_string()),
         release_date: Some("2025-02-02".to_string()),
         year: Some("2025".to_string()),
         runtime_minutes: Some(45.0),

@@ -3,6 +3,7 @@ use crate::notion_fallback::fallback_schema;
 use crate::tmdb::{self, TmdbApi, TmdbClient};
 use anyhow::Result;
 use axum::{extract::State, http::StatusCode, routing::post, Json, Router};
+use serde_json::json;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tracing::{error, info, warn};
@@ -105,6 +106,10 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         .and_then(|p| p.as_object())
         .ok_or_else(|| anyhow::anyhow!("Page has no properties"))?;
 
+    // Enrich schema from live page properties (handles cases where DB schema is unavailable).
+    let mut schema = (*state.schema).clone();
+    notion::merge_schema_from_props(&mut schema, props);
+
     let raw_title = notion::extract_title(props, &state.title_property).unwrap_or_default();
 
     if !raw_title.ends_with(';') {
@@ -152,9 +157,11 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         state.tmdb.fetch_movie(movie_id).await?
     };
 
-    // Merge schema from live page properties (handles cases where DB schema is unavailable).
-    let mut schema = (*state.schema).clone();
-    notion::merge_schema_from_props(&mut schema, props);
+    tracing::info!(
+        "Starting update for page '{}' -> '{}'",
+        raw_title,
+        tmdb_media.name
+    );
 
     let mut updates = serde_json::Map::new();
     notion::set_title(
@@ -249,7 +256,7 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
     notion::set_value(
         &mut updates,
         "IMG",
-        tmdb_media.poster.map(notion::ValueInput::Url),
+        tmdb_media.poster.clone().map(notion::ValueInput::Url),
         &schema,
     );
     notion::set_value(
@@ -265,6 +272,28 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         &schema,
     );
 
-    state.notion.update_page(page_id, updates).await?;
+    // Prepare icon/cover using poster/backdrop if available.
+    let icon = tmdb_media.poster.as_ref().map(|url| {
+        json!({
+            "type": "external",
+            "external": { "url": url }
+        })
+    });
+    let cover = tmdb_media.backdrop.as_ref().map(|url| {
+        json!({
+            "type": "external",
+            "external": { "url": url }
+        })
+    });
+
+    state
+        .notion
+        .update_page(page_id, updates, icon, cover)
+        .await?;
+    tracing::info!(
+        "Finished update for page '{}' -> '{}'",
+        raw_title,
+        tmdb_media.name
+    );
     Ok(())
 }

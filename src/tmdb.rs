@@ -161,6 +161,7 @@ impl TmdbApi for TmdbClient {
             .imdb_id
             .as_ref()
             .map(|id| format!("https://www.imdb.com/title/{id}"));
+        let language = language_name(&detail.original_language);
 
         Ok(MediaData {
             id: detail.id,
@@ -172,7 +173,7 @@ impl TmdbApi for TmdbClient {
             director,
             content_rating,
             country_of_origin: country,
-            language: Some(detail.original_language),
+            language,
             release_date,
             year,
             runtime_minutes: detail.runtime,
@@ -255,6 +256,7 @@ impl TmdbApi for TmdbClient {
             .unwrap_or_default();
         let episodes_count = season_detail.episodes.len();
         let runtime = average_episode_runtime(&season_detail, &show);
+        let language = language_name(&show.original_language);
 
         Ok(MediaData {
             id: show.id,
@@ -270,7 +272,7 @@ impl TmdbApi for TmdbClient {
             director: created_by,
             content_rating,
             country_of_origin: country,
-            language: Some(show.original_language),
+            language,
             release_date: air_date,
             year,
             runtime_minutes: runtime,
@@ -502,4 +504,41 @@ fn average_episode_runtime(season: &SeasonDetail, show: &ShowDetail) -> Option<f
         .as_ref()
         .and_then(|r| r.first().copied())
         .map(|r| r as f32)
+}
+
+fn language_name(code: &str) -> Option<String> {
+    let name = match code {
+        "en" => "English",
+        "fr" => "French",
+        "es" => "Spanish",
+        "de" => "German",
+        "it" => "Italian",
+        "pt" => "Portuguese",
+        "ru" => "Russian",
+        "ja" => "Japanese",
+        "ko" => "Korean",
+        "zh" => "Chinese",
+        "ar" => "Arabic",
+        "hi" => "Hindi",
+        "sv" => "Swedish",
+        "da" => "Danish",
+        "no" => "Norwegian",
+        "fi" => "Finnish",
+        "nl" => "Dutch",
+        "pl" => "Polish",
+        "tr" => "Turkish",
+        "cs" => "Czech",
+        "el" => "Greek",
+        "he" => "Hebrew",
+        "id" => "Indonesian",
+        "ms" => "Malay",
+        "th" => "Thai",
+        "vi" => "Vietnamese",
+        "ro" => "Romanian",
+        "hu" => "Hungarian",
+        "uk" => "Ukrainian",
+        "fa" => "Persian",
+        _ => return Some(code.to_string()),
+    };
+    Some(name.to_string())
 }

@@ -18,7 +18,13 @@ pub struct NotionClient {
 pub trait NotionApi: Send + Sync {
     async fn fetch_property_schema(&self) -> Result<PropertySchema>;
     async fn fetch_page(&self, page_id: &str) -> Result<Value>;
-    async fn update_page(&self, page_id: &str, properties: Map<String, Value>) -> Result<()>;
+    async fn update_page(
+        &self,
+        page_id: &str,
+        properties: Map<String, Value>,
+        icon: Option<Value>,
+        cover: Option<Value>,
+    ) -> Result<()>;
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -152,9 +158,21 @@ impl NotionApi for NotionClient {
         serde_json::from_str(&text).context("Failed to parse page JSON")
     }
 
-    async fn update_page(&self, page_id: &str, properties: Map<String, Value>) -> Result<()> {
+    async fn update_page(
+        &self,
+        page_id: &str,
+        properties: Map<String, Value>,
+        icon: Option<Value>,
+        cover: Option<Value>,
+    ) -> Result<()> {
         let url = format!("https://api.notion.com/v1/pages/{}", page_id);
-        let body = json!({ "properties": properties });
+        let mut body = json!({ "properties": properties });
+        if let Some(icon_val) = icon {
+            body["icon"] = icon_val;
+        }
+        if let Some(cover_val) = cover {
+            body["cover"] = cover_val;
+        }
 
         let res = self
             .client
