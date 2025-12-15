@@ -260,12 +260,14 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
         &schema,
     );
 
-    notion::set_value(
-        &mut updates,
-        "Eng Name",
-        Some(notion::ValueInput::Text(tmdb_media.eng_name)),
-        &schema,
-    );
+    if let Some(eng) = tmdb_media.eng_name.clone() {
+        notion::set_value(
+            &mut updates,
+            "Eng Name",
+            Some(notion::ValueInput::Text(eng)),
+            &schema,
+        );
+    }
     notion::set_value(
         &mut updates,
         "Synopsis",

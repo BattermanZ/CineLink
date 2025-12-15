@@ -156,7 +156,7 @@ fn tmdb_movie() -> MediaData {
     MediaData {
         id: 101,
         name: "TMDB Movie".to_string(),
-        eng_name: "TMDB Movie".to_string(),
+        eng_name: Some("TMDB Movie".to_string()),
         synopsis: Some("Movie overview".to_string()),
         genres: vec!["Drama".to_string()],
         cast: vec!["Actor A".to_string()],
@@ -164,6 +164,7 @@ fn tmdb_movie() -> MediaData {
         content_rating: Some("PG-13".to_string()),
         country_of_origin: vec!["US".to_string()],
         language: Some("English".to_string()),
+        original_language: "en".to_string(),
         release_date: Some("2024-01-01".to_string()),
         year: Some("2024".to_string()),
         runtime_minutes: Some(120.0),
@@ -179,7 +180,7 @@ fn tmdb_tv() -> MediaData {
     MediaData {
         id: 202,
         name: "TMDB Show".to_string(),
-        eng_name: "TMDB Show".to_string(),
+        eng_name: Some("TMDB Show".to_string()),
         synopsis: Some("Show overview".to_string()),
         genres: vec!["Sci-Fi".to_string()],
         cast: vec!["Actor B".to_string()],
@@ -187,6 +188,7 @@ fn tmdb_tv() -> MediaData {
         content_rating: Some("TV-MA".to_string()),
         country_of_origin: vec!["US".to_string()],
         language: Some("English".to_string()),
+        original_language: "en".to_string(),
         release_date: Some("2025-02-02".to_string()),
         year: Some("2025".to_string()),
         runtime_minutes: Some(45.0),
@@ -468,4 +470,80 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
         .and_then(|t| t.get("content"))
         .and_then(|s| s.as_str());
     assert_eq!(name, Some(tv.name.as_str()));
+}
+
+#[tokio::test]
+async fn uses_original_title_for_french_with_eng_name_set() {
+    // Simulate French media: original title should be used for Name; Eng Name should be set.
+    let french_media = MediaData {
+        id: 303,
+        name: "Titre anglais".to_string(), // localized title
+        eng_name: None, // will be ignored; we set below
+        synopsis: None,
+        genres: vec![],
+        cast: vec![],
+        director: vec![],
+        content_rating: None,
+        country_of_origin: vec![],
+        language: Some("French".to_string()),
+        original_language: "fr".to_string(),
+        release_date: None,
+        year: None,
+        runtime_minutes: None,
+        episodes: None,
+        trailer: None,
+        poster: None,
+        backdrop: None,
+        imdb_page: None,
+    };
+    let french_media_with_titles = MediaData {
+        name: "Titre original".to_string(),
+        eng_name: Some("English Title".to_string()),
+        ..french_media
+    };
+
+    let page = make_page("Titre original ;", "Movie", None);
+    let (app, notion) = app_with_mocks(
+        page.clone(),
+        FakeTmdb {
+            movie: french_media_with_titles.clone(),
+            tv: tmdb_tv(),
+        },
+    );
+
+    let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
+    let res = app
+        .oneshot(
+            Request::post("/")
+                .header("content-type", "application/json")
+                .body(Body::from(payload))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    let updates = notion.updates.lock().unwrap();
+    assert_eq!(updates.len(), 1);
+    let (_id, props, _, _) = &updates[0];
+
+    let name = props
+        .get("Name")
+        .and_then(|p| p.get("title"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(name, Some("Titre original"));
+
+    let eng_name = props
+        .get("Eng Name")
+        .and_then(|p| p.get("rich_text"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(eng_name, Some("English Title"));
 }

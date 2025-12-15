@@ -28,7 +28,7 @@ pub trait TmdbApi: Send + Sync {
 pub struct MediaData {
     pub id: i32,
     pub name: String,
-    pub eng_name: String,
+    pub eng_name: Option<String>,
     pub synopsis: Option<String>,
     pub genres: Vec<String>,
     pub cast: Vec<String>,
@@ -36,6 +36,7 @@ pub struct MediaData {
     pub content_rating: Option<String>,
     pub country_of_origin: Vec<String>,
     pub language: Option<String>,
+    pub original_language: String,
     pub release_date: Option<String>,
     pub year: Option<String>,
     pub runtime_minutes: Option<f32>,
@@ -193,11 +194,22 @@ impl TmdbApi for TmdbClient {
             .as_ref()
             .map(|id| format!("https://www.imdb.com/title/{id}"));
         let language = language_name(&detail.original_language);
+        let use_original = detail.original_language == "fr" || detail.original_language == "es";
+    let name = if use_original {
+            detail.original_title.clone()
+        } else {
+            detail.title.clone()
+        };
+        let eng_name = if use_original {
+            Some(detail.title.clone())
+        } else {
+            None
+        };
 
         Ok(MediaData {
             id: detail.id,
-            name: detail.title.clone(),
-            eng_name: detail.title.clone(),
+            name,
+            eng_name,
             synopsis: Some(detail.overview),
             genres,
             cast,
@@ -205,6 +217,7 @@ impl TmdbApi for TmdbClient {
             content_rating,
             country_of_origin: country,
             language,
+            original_language: detail.original_language,
             release_date,
             year,
             runtime_minutes: detail.runtime,
@@ -288,11 +301,22 @@ impl TmdbApi for TmdbClient {
         let episodes_count = season_detail.episodes.len();
         let runtime = average_episode_runtime(&season_detail, &show);
         let language = language_name(&show.original_language);
+        let use_original = show.original_language == "fr" || show.original_language == "es";
+        let name = if use_original {
+            show.original_name.clone()
+        } else {
+            show.name.clone()
+        };
+        let eng_name = if use_original {
+            Some(show.name.clone())
+        } else {
+            None
+        };
 
         Ok(MediaData {
             id: show.id,
-            name: show.name.clone(),
-            eng_name: show.name.clone(),
+            name,
+            eng_name,
             synopsis: Some(if season_detail.overview.is_empty() {
                 show.overview.clone()
             } else {
@@ -304,6 +328,7 @@ impl TmdbApi for TmdbClient {
             content_rating,
             country_of_origin: country,
             language,
+            original_language: show.original_language,
             release_date: air_date,
             year,
             runtime_minutes: runtime,
@@ -399,6 +424,7 @@ struct ProductionCountry {
 struct MovieDetail {
     id: i32,
     title: String,
+    original_title: String,
     overview: String,
     release_date: Option<String>,
     runtime: Option<f32>,
@@ -414,6 +440,7 @@ struct MovieDetail {
 struct ShowDetail {
     id: i32,
     name: String,
+    original_name: String,
     overview: String,
     original_language: String,
     origin_country: Vec<String>,
