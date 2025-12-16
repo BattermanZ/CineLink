@@ -29,6 +29,7 @@
 /docs
 /debugging
 /tests
+/tests
 
 # OS generated files
 .DS_Store
