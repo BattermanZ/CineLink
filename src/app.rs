@@ -84,7 +84,10 @@ pub async fn run_server() -> Result<()> {
 
     let addr = SocketAddr::from(([0, 0, 0, 0], 3146));
     info!("Listening on {}", addr);
-    axum::serve(tokio::net::TcpListener::bind(addr).await?, app).await?;
+    let listener = tokio::net::TcpListener::bind(addr).await?;
+    axum::serve(listener, app)
+        .with_graceful_shutdown(shutdown_signal())
+        .await?;
     Ok(())
 }
 
@@ -513,6 +516,33 @@ fn verify_notion_signature(headers: &HeaderMap, body: &[u8], secret: &str) -> bo
     let computed = mac.finalize().into_bytes();
 
     expected.len() == computed.len() && constant_time_eq(&computed, &expected)
+}
+
+async fn shutdown_signal() {
+    let ctrl_c = async {
+        tokio::signal::ctrl_c()
+            .await
+            .expect("failed to install Ctrl+C handler");
+    };
+
+    #[cfg(unix)]
+    let terminate = async {
+        use tokio::signal::unix::{signal, SignalKind};
+        let mut term = signal(SignalKind::terminate()).expect("failed to install SIGTERM handler");
+        term.recv().await;
+    };
+
+    #[cfg(not(unix))]
+    let terminate = std::future::pending::<()>();
+
+    tokio::select! {
+        _ = ctrl_c => {
+            info!("Shutdown signal received (Ctrl+C)");
+        }
+        _ = terminate => {
+            info!("Shutdown signal received (SIGTERM)");
+        }
+    }
 }
 
 fn extract_ip(headers: &HeaderMap) -> String {
