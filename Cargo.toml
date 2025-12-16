@@ -1,7 +1,8 @@
 [package]
 name = "cinelink"
-version = "4.0.0"
+version = "4.0.5"
 edition = "2021"
+license = "AGPL-3.0-only"
 
 [dependencies]
 anyhow = "1.0"
