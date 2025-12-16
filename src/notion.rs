@@ -4,6 +4,7 @@ use reqwest::Client;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::env;
+use std::time::Duration;
 use tracing::warn;
 
 use crate::notion_fallback::fallback_schema;
@@ -62,8 +63,15 @@ impl NotionClient {
     pub fn from_env() -> Result<Self> {
         let api_key = env::var("NOTION_API_KEY").context("NOTION_API_KEY not set")?;
         let database_id = env::var("NOTION_DATABASE_ID").context("NOTION_DATABASE_ID not set")?;
+        let user_agent = format!("cinelink/{}", env!("CARGO_PKG_VERSION"));
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(30))
+            .user_agent(user_agent)
+            .build()
+            .context("Failed to build Notion HTTP client")?;
         Ok(Self {
-            client: Client::new(),
+            client,
             api_key,
             database_id,
         })
@@ -84,20 +92,20 @@ impl NotionApi for NotionClient {
             .context("Failed to fetch Notion database")?;
 
         let status = res.status();
-        let body_text = res
-            .text()
+        let bytes = res
+            .bytes()
             .await
             .context("Failed to read Notion response body")?;
         if !status.is_success() {
             return Err(anyhow::anyhow!(
                 "Notion database request failed (status {}): {}",
                 status,
-                body_text
+                String::from_utf8_lossy(&bytes)
             ));
         }
 
         let body: Value =
-            serde_json::from_str(&body_text).context("Failed to parse database JSON")?;
+            serde_json::from_slice(&bytes).context("Failed to parse database JSON")?;
         if let Some(props) = body.get("properties").and_then(|p| p.as_object()) {
             return Ok(schema_from_properties(props));
         }
@@ -127,19 +135,19 @@ impl NotionApi for NotionClient {
             .context("Failed to fetch Notion page")?;
 
         let status = res.status();
-        let text = res
-            .text()
+        let bytes = res
+            .bytes()
             .await
             .context("Failed to read Notion page response")?;
         if !status.is_success() {
             return Err(anyhow::anyhow!(
                 "Notion page request failed (status {}): {}",
                 status,
-                text
+                String::from_utf8_lossy(&bytes)
             ));
         }
 
-        serde_json::from_str(&text).context("Failed to parse page JSON")
+        serde_json::from_slice(&bytes).context("Failed to parse page JSON")
     }
 
     async fn update_page(
@@ -169,15 +177,15 @@ impl NotionApi for NotionClient {
             .context("Failed to update Notion page")?;
 
         let status = res.status();
-        let text = res
-            .text()
+        let bytes = res
+            .bytes()
             .await
             .context("Failed to read Notion update response")?;
         if !status.is_success() {
             return Err(anyhow::anyhow!(
                 "Notion page update failed (status {}): {}",
                 status,
-                text
+                String::from_utf8_lossy(&bytes)
             ));
         }
 
@@ -332,19 +340,20 @@ async fn fetch_schema_via_query(
         .context("Failed to query Notion database for schema inference")?;
 
     let status = res.status();
-    let text = res
-        .text()
+    let bytes = res
+        .bytes()
         .await
         .context("Failed to read Notion query response")?;
     if !status.is_success() {
         return Err(anyhow::anyhow!(
             "Notion query failed (status {}): {}",
             status,
-            text
+            String::from_utf8_lossy(&bytes)
         ));
     }
 
-    let body: Value = serde_json::from_str(&text).context("Failed to parse Notion query JSON")?;
+    let body: Value =
+        serde_json::from_slice(&bytes).context("Failed to parse Notion query JSON")?;
     let props = body
         .get("results")
         .and_then(|r| r.as_array())

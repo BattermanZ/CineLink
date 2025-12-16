@@ -32,11 +32,13 @@ fn check_env() -> Result<()> {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    match dotenv() {
+    // Load `.env` before initializing tracing so `RUST_LOG` (if present) is applied.
+    let dotenv_result = dotenv();
+    init_tracing();
+    match dotenv_result {
         Ok(path) => info!("Loaded environment from {:?}", path),
         Err(e) => warn!("No .env file loaded ({}) - relying on environment", e),
     }
-    init_tracing();
     check_env()?;
     cinelink::app::run_server().await
 }

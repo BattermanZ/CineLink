@@ -27,6 +27,8 @@ const GLOBAL_BURST: u32 = 20;
 const MAX_SKEW_SECS: i64 = 300; // 5 minutes freshness window
 const DEDUPE_TTL_SECS: i64 = 600; // 10 minutes
 const MAX_CONCURRENT_JOBS: usize = 8;
+const MAX_RATE_LIMIT_ENTRIES: usize = 10_000;
+const MAX_DEDUPE_ENTRIES: usize = 10_000;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -107,8 +109,8 @@ pub fn build_router(state: AppState) -> Router {
         .with_state(state)
 }
 
-async fn health() -> StatusCode {
-    StatusCode::OK
+async fn health() -> &'static str {
+    "OK"
 }
 
 async fn handle_webhook(
@@ -131,7 +133,7 @@ async fn handle_webhook(
         return StatusCode::PAYLOAD_TOO_LARGE;
     }
 
-    // Enforce content type and version
+    // Enforce content type
     let content_type_ok = headers
         .get(header::CONTENT_TYPE)
         .and_then(|v| v.to_str().ok())
@@ -603,6 +605,9 @@ fn extract_ip(headers: &HeaderMap) -> String {
 async fn check_rate_limit(state: &AppState, ip: &str) -> bool {
     let window = (Utc::now().timestamp() / 60) as u64;
     let mut guards = state.rate_limits.lock().await;
+    if guards.len() > MAX_RATE_LIMIT_ENTRIES {
+        guards.retain(|_, v| v.window == window);
+    }
     let entry = guards
         .entry(ip.to_string())
         .or_insert(WindowCounter { window, count: 0 });
@@ -649,6 +654,9 @@ async fn dedupe_event(state: &AppState, event_id: &str) -> bool {
     let now = Utc::now().timestamp();
     let mut guard = state.recent_events.lock().await;
     guard.retain(|_, ts| now - *ts <= DEDUPE_TTL_SECS);
+    if guard.len() > MAX_DEDUPE_ENTRIES {
+        guard.clear();
+    }
     if guard.contains_key(event_id) {
         return false;
     }

@@ -3,6 +3,7 @@ use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
 use std::env;
+use std::time::Duration;
 
 const TMDB_BASE: &str = "https://api.themoviedb.org/3";
 const POSTER_BASE: &str = "https://image.tmdb.org/t/p/original";
@@ -51,10 +52,14 @@ pub struct MediaData {
 impl TmdbClient {
     pub fn from_env() -> Result<Self> {
         let api_key = env::var("TMDB_API_KEY").context("TMDB_API_KEY not set")?;
-        Ok(Self {
-            client: Client::new(),
-            api_key,
-        })
+        let user_agent = format!("cinelink/{}", env!("CARGO_PKG_VERSION"));
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(30))
+            .user_agent(user_agent)
+            .build()
+            .context("Failed to build TMDB HTTP client")?;
+        Ok(Self { client, api_key })
     }
 
     async fn fetch_movie_images(&self, id: i32, lang: &str) -> Result<ImageResponse> {
@@ -422,12 +427,16 @@ impl TmdbClient {
             .await
             .context("request failed")?;
         let status = res.status();
-        let text = res.text().await.context("reading body failed")?;
+        let bytes = res.bytes().await.context("reading body failed")?;
         if !status.is_success() {
-            return Err(anyhow!("{} -> {}", url, text));
+            return Err(anyhow!(
+                "TMDB request failed (status {}) for {}: {}",
+                status,
+                url,
+                String::from_utf8_lossy(&bytes)
+            ));
         }
-        let parsed: T = serde_json::from_str(&text).context("JSON parse failed")?;
-        Ok(parsed)
+        serde_json::from_slice(&bytes).context("JSON parse failed")
     }
 
     async fn find_imdb(&self, imdb_id: &str, media: &str) -> Result<Option<i32>> {
