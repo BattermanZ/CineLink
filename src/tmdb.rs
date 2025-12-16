@@ -65,14 +65,6 @@ impl TmdbClient {
         self.get_json(&url).await
     }
 
-    async fn fetch_show_images(&self, id: i32, lang: &str) -> Result<ImageResponse> {
-        let url = format!(
-            "{TMDB_BASE}/tv/{id}/images?include_image_language={lang},null&api_key={}",
-            self.api_key
-        );
-        self.get_json(&url).await
-    }
-
     async fn fetch_season_images(&self, id: i32, season: i32, lang: &str) -> Result<ImageResponse> {
         let url = format!(
             "{TMDB_BASE}/tv/{id}/season/{season}/images?include_image_language={lang},null&api_key={}",
@@ -157,36 +149,46 @@ impl TmdbApi for TmdbClient {
     }
 
     async fn fetch_movie(&self, id: i32) -> Result<MediaData> {
-        let detail: MovieDetail = self
-            .get_json(&format!(
+        // Try a single "append_to_response" request first (fewer round trips).
+        // If TMDB changes the response shape or an append isn't supported, fall back to the
+        // previous multi-request approach (still parallelized).
+        let appended = self.fetch_movie_appended(id).await.ok();
+        let (detail, credits, release_dates, videos, external_ids, images_opt) = if let Some(a) =
+            appended
+        {
+            (
+                a.detail,
+                a.credits,
+                a.release_dates,
+                a.videos,
+                a.external_ids,
+                a.images,
+            )
+        } else {
+            let url_detail = format!(
                 "{TMDB_BASE}/movie/{id}?language=en-US&api_key={}",
                 self.api_key
-            ))
-            .await?;
-        let credits: Credits = self
-            .get_json(&format!(
-                "{TMDB_BASE}/movie/{id}/credits?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let release_dates: ReleaseDates = self
-            .get_json(&format!(
+            );
+            let url_credits = format!("{TMDB_BASE}/movie/{id}/credits?api_key={}", self.api_key);
+            let url_release_dates = format!(
                 "{TMDB_BASE}/movie/{id}/release_dates?api_key={}",
                 self.api_key
-            ))
-            .await?;
-        let videos: Videos = self
-            .get_json(&format!(
-                "{TMDB_BASE}/movie/{id}/videos?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let external_ids: ExternalIds = self
-            .get_json(&format!(
+            );
+            let url_videos = format!("{TMDB_BASE}/movie/{id}/videos?api_key={}", self.api_key);
+            let url_external_ids = format!(
                 "{TMDB_BASE}/movie/{id}/external_ids?api_key={}",
                 self.api_key
-            ))
-            .await?;
+            );
+
+            let (detail, credits, release_dates, videos, external_ids) = tokio::try_join!(
+                self.get_json::<MovieDetail>(&url_detail),
+                self.get_json::<Credits>(&url_credits),
+                self.get_json::<ReleaseDates>(&url_release_dates),
+                self.get_json::<Videos>(&url_videos),
+                self.get_json::<ExternalIds>(&url_external_ids),
+            )?;
+            (detail, credits, release_dates, videos, external_ids, None)
+        };
 
         let content_rating = us_cert_from_release_dates(&release_dates);
         let director = credits
@@ -208,7 +210,11 @@ impl TmdbApi for TmdbClient {
 
         let poster = match preferred_lang {
             Some(lang) => {
-                let images = self.fetch_movie_images(id, lang).await.ok();
+                let images = if images_opt.is_some() {
+                    images_opt
+                } else {
+                    self.fetch_movie_images(id, lang).await.ok()
+                };
                 select_poster(images.as_ref(), Some(lang)).or_else(|| {
                     detail
                         .poster_path
@@ -273,55 +279,39 @@ impl TmdbApi for TmdbClient {
     }
 
     async fn fetch_tv_season(&self, id: i32, season: i32) -> Result<MediaData> {
-        let show: ShowDetail = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}?language=en-US&api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let season_detail: SeasonDetail = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/season/{season}?language=en-US&api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let credits: Credits = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/season/{season}/credits?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let ratings: ContentRatings = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/content_ratings?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let videos: Videos = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/season/{season}/videos?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let show_videos: Videos = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/videos?api_key={}",
-                self.api_key
-            ))
-            .await?;
-        let external_ids: ExternalIds = self
-            .get_json(&format!(
-                "{TMDB_BASE}/tv/{id}/external_ids?api_key={}",
-                self.api_key
-            ))
-            .await?;
+        let url_season = format!(
+            "{TMDB_BASE}/tv/{id}/season/{season}?language=en-US&api_key={}",
+            self.api_key
+        );
+        let url_credits = format!(
+            "{TMDB_BASE}/tv/{id}/season/{season}/credits?api_key={}",
+            self.api_key
+        );
+        let url_videos = format!(
+            "{TMDB_BASE}/tv/{id}/season/{season}/videos?api_key={}",
+            self.api_key
+        );
 
-        let content_rating = us_rating(&ratings);
+        let (show, season_detail, credits, season_videos) = tokio::try_join!(
+            self.fetch_show_appended(id),
+            self.get_json::<SeasonDetail>(&url_season),
+            self.get_json::<Credits>(&url_credits),
+            self.get_json::<Videos>(&url_videos),
+        )?;
+
+        let ShowAppended {
+            show: show_detail,
+            external_ids,
+            content_ratings,
+            videos: show_videos,
+            images: show_images,
+        } = show;
+        let content_rating = us_rating(&content_ratings);
         let cast = top_names(&credits.cast, 10);
-        let trailer = select_trailer(&videos).or_else(|| select_trailer(&show_videos));
-        let preferred_lang = if show.original_language == "fr" {
+        let trailer = select_trailer(&season_videos).or_else(|| select_trailer(&show_videos));
+        let preferred_lang = if show_detail.original_language == "fr" {
             Some("fr")
-        } else if show.original_language == "es" {
+        } else if show_detail.original_language == "es" {
             Some("es")
         } else {
             None
@@ -330,61 +320,61 @@ impl TmdbApi for TmdbClient {
         let poster = match preferred_lang {
             Some(lang) => {
                 let season_images = self.fetch_season_images(id, season, lang).await.ok();
-                let show_images = self.fetch_show_images(id, lang).await.ok();
                 select_poster(season_images.as_ref(), Some(lang))
                     .or_else(|| select_poster(show_images.as_ref(), Some(lang)))
                     .or_else(|| {
                         season_detail
                             .poster_path
                             .as_ref()
-                            .or(show.poster_path.as_ref())
+                            .or(show_detail.poster_path.as_ref())
                             .map(|p| format!("{POSTER_BASE}{p}"))
                     })
             }
             None => season_detail
                 .poster_path
                 .as_ref()
-                .or(show.poster_path.as_ref())
+                .or(show_detail.poster_path.as_ref())
                 .map(|p| format!("{POSTER_BASE}{p}")),
         };
-        let backdrop = show
+        let backdrop = show_detail
             .backdrop_path
             .as_ref()
             .map(|p| format!("{POSTER_BASE}{p}"));
-        let country = origin_country(Some(&show.origin_country), None);
-        let genres = names(show.genres.as_ref());
+        let country = origin_country(Some(&show_detail.origin_country), None);
+        let genres = names(show_detail.genres.as_ref());
         let air_date = season_detail.air_date.clone();
         let year = air_date.as_deref().and_then(extract_year);
         let imdb_page = external_ids
             .imdb_id
             .as_ref()
             .map(|id| format!("https://www.imdb.com/title/{id}"));
-        let created_by = show
+        let created_by = show_detail
             .created_by
             .as_ref()
             .map(|c| c.iter().map(|c| c.name.clone()).collect::<Vec<_>>())
             .unwrap_or_default();
         let episodes_count = season_detail.episodes.len();
-        let runtime = average_episode_runtime(&season_detail, &show);
-        let language = language_name(&show.original_language);
-        let use_original = show.original_language == "fr" || show.original_language == "es";
+        let runtime = average_episode_runtime(&season_detail, &show_detail);
+        let language = language_name(&show_detail.original_language);
+        let use_original =
+            show_detail.original_language == "fr" || show_detail.original_language == "es";
         let name = if use_original {
-            show.original_name.clone()
+            show_detail.original_name.clone()
         } else {
-            show.name.clone()
+            show_detail.name.clone()
         };
         let eng_name = if use_original {
-            Some(show.name.clone())
+            Some(show_detail.name.clone())
         } else {
             None
         };
 
         Ok(MediaData {
-            id: show.id,
+            id: show_detail.id,
             name,
             eng_name,
             synopsis: Some(if season_detail.overview.is_empty() {
-                show.overview.clone()
+                show_detail.overview.clone()
             } else {
                 season_detail.overview.clone()
             }),
@@ -394,7 +384,7 @@ impl TmdbApi for TmdbClient {
             content_rating,
             country_of_origin: country,
             language,
-            original_language: show.original_language,
+            original_language: show_detail.original_language,
             release_date: air_date,
             year,
             runtime_minutes: runtime,
@@ -408,6 +398,22 @@ impl TmdbApi for TmdbClient {
 }
 
 impl TmdbClient {
+    async fn fetch_movie_appended(&self, id: i32) -> Result<MovieAppended> {
+        let url = format!(
+            "{TMDB_BASE}/movie/{id}?append_to_response=credits,release_dates,videos,external_ids,images&language=en-US&include_image_language=fr,es,null&api_key={}",
+            self.api_key
+        );
+        self.get_json(&url).await
+    }
+
+    async fn fetch_show_appended(&self, id: i32) -> Result<ShowAppended> {
+        let url = format!(
+            "{TMDB_BASE}/tv/{id}?append_to_response=external_ids,content_ratings,videos,images&language=en-US&include_image_language=fr,es,null&api_key={}",
+            self.api_key
+        );
+        self.get_json(&url).await
+    }
+
     async fn get_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T> {
         let res = self
             .client
@@ -596,6 +602,7 @@ struct Video {
 
 #[derive(Debug, Deserialize)]
 struct ImageResponse {
+    #[serde(default)]
     posters: Vec<Image>,
 }
 
@@ -603,6 +610,29 @@ struct ImageResponse {
 struct Image {
     file_path: String,
     iso_639_1: Option<String>,
+}
+
+#[derive(Debug, Deserialize)]
+struct MovieAppended {
+    #[serde(flatten)]
+    detail: MovieDetail,
+    credits: Credits,
+    release_dates: ReleaseDates,
+    videos: Videos,
+    external_ids: ExternalIds,
+    #[serde(default)]
+    images: Option<ImageResponse>,
+}
+
+#[derive(Debug, Deserialize)]
+struct ShowAppended {
+    #[serde(flatten)]
+    show: ShowDetail,
+    external_ids: ExternalIds,
+    content_ratings: ContentRatings,
+    videos: Videos,
+    #[serde(default)]
+    images: Option<ImageResponse>,
 }
 
 pub fn parse_season_number(input: &str) -> Option<i32> {
