@@ -1,7 +1,6 @@
 # Rust build artifacts
 /target
 **/*.rs.bk
-Cargo.lock
 
 # Version control
 .git
@@ -23,6 +22,14 @@ Cargo.lock
 *.tmp
 *.bak
 *.swp
+*.jsonl
+
+# Unneeded context
+/archive
+/docs
+/debugging
+/tests
+/tests
 
 # OS generated files
 .DS_Store
@@ -31,4 +38,3 @@ Thumbs.db
 # Debug files
 **/*.pdb
 **/*.dSYM
-

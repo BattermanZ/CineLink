@@ -1,0 +1,13 @@
+services:
+  cinelink:
+    container_name: cinelink
+    image: 192.168.31.233:5000/cinelink:v4.0.0
+    restart: unless-stopped
+    user: "1000:1000"
+    env_file:
+      - .env
+    ports:
+      - "3146:3146"
+    environment:
+      # Override if needed, otherwise comes from .env
+      RUST_LOG: info

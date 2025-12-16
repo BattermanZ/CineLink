@@ -1,53 +1,43 @@
-mod models;
-mod plex;
-mod notion;
-mod sync;
-mod utils;
-mod server;
-mod tmdb;
+use anyhow::Result;
+use dotenvy::dotenv;
+use std::env;
+use tracing::{info, warn};
+use tracing_subscriber::EnvFilter;
 
-use anyhow::{Result, Context};
-use log::{info, debug};
-use std::path::Path;
+fn init_tracing() {
+    let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
+    tracing_subscriber::fmt()
+        .with_env_filter(filter)
+        .with_target(false)
+        .compact()
+        .init();
+}
 
-use crate::utils::{setup_logger, check_env_var};
-use crate::server::start_server;
-
-#[tokio::main]
-async fn main() -> Result<()> {
-    debug!("Starting main function");
-
-    // Try to load .env from the current directory (for development)
-    if dotenvy::dotenv().is_err() {
-        // If that fails, try to load from /app/.env (for Docker)
-        dotenvy::from_path(Path::new("/app/.env"))
-            .context("Failed to load .env file from both current directory and /app/.env")?;
-    }
-
-    debug!("Setting up logger");
-    setup_logger()?;
-
-    info!("CineLink starting up...");
-
-    let env_vars = [
+fn check_env() -> Result<()> {
+    let required = [
         "NOTION_API_KEY",
         "NOTION_DATABASE_ID",
-        "PLEX_URL",
-        "PLEX_TOKEN",
-        "API_KEY",
         "TMDB_API_KEY",
-        "TVSHOWS_API_KEY",
+        "NOTION_WEBHOOK_SECRET",
     ];
-
-    debug!("Checking environment variables");
-    for var in env_vars.iter() {
-        check_env_var(var)?;
+    for key in required {
+        if env::var(key).is_err() {
+            anyhow::bail!("Missing required environment variable: {}", key);
+        }
     }
-
-    debug!("Starting server");
-    start_server().await?;
-
-    debug!("Server started successfully");
+    info!("All required environment variables are set");
     Ok(())
 }
 
+#[tokio::main]
+async fn main() -> Result<()> {
+    // Load `.env` before initializing tracing so `RUST_LOG` (if present) is applied.
+    let dotenv_result = dotenv();
+    init_tracing();
+    match dotenv_result {
+        Ok(path) => info!("Loaded environment from {:?}", path),
+        Err(e) => warn!("No .env file loaded ({}) - relying on environment", e),
+    }
+    check_env()?;
+    cinelink::app::run_server().await
+}

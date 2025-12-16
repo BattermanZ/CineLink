@@ -1,207 +1,146 @@
-# 🎬 CineLink v3.1.0
+# CineLink v4.0.0
 
-Synchronize your movie ratings between Plex and Notion, with added support for TV shows! 📺
+CineLink is a small webhook-driven service that listens for Notion page updates and auto-populates metadata from TMDB (movies and TV seasons).
 
-## 🌟 Features
+Disclaimer: This project was developed with the help of AI-assisted coding tools. Please review changes carefully before deploying.
 
-- **Movie Sync**
-  - 🔄 Bidirectional sync between Plex and Notion
-  - ⭐ Rating synchronization (1-10 scale)
-  - 📝 Automatic movie entry creation in Notion
-  - 🎯 Smart duplicate detection
+## What it does
 
-- **TV Show Support**
-  - 📺 Fetch TV show details from TMDB
-  - 🎭 Cast information
-  - 📝 Show synopsis
-  - 🎬 Trailer links
-  - 🖼️ Show posters
-  - 📅 Air dates
+- Listens on port `3146` for Notion webhooks (`POST /`).
+- When a page is “armed” (title ends with `;`) and the webhook indicates a relevant property changed, CineLink:
+  - Fetches the page via the Notion API.
+  - Determines whether it’s a movie or TV item.
+  - Resolves a TMDB match from the title, a TMDB id, or an IMDb `tt...` id.
+  - Fetches metadata from TMDB.
+  - Updates the Notion page properties and sets:
+    - page icon to the poster (miniature)
+    - page cover to the backdrop (background image)
+- Exposes a simple health check (`GET /health`).
 
-## 🚀 Project Structure
+The workflow is also diagrammed in `docs/workflow_v2.md`.
 
-```
-CineLink/
-├── src/
-│   ├── main.rs        # Application entry point and module declarations
-│   ├── models.rs      # Data structures for Movies and TV Shows
-│   ├── notion.rs      # Notion API integration and database operations
-│   ├── plex.rs        # Plex API integration and XML parsing
-│   ├── server.rs      # HTTP server setup and API endpoints
-│   ├── sync.rs        # Synchronization logic between Plex and Notion
-│   ├── tmdb.rs        # TMDB API integration for TV show details
-│   └── utils.rs       # Utility functions and logging setup
-├── logs/
-│   └── cinelink.log   # Application logs
-├── .env               # Environment variables (create from .env.example)
-├── .env.example       # Example environment variables template
-├── Cargo.toml         # Rust dependencies and project metadata
-├── Dockerfile         # Container configuration
-├── LICENSE           # MIT License
-└── README.md         # Project documentation
-```
+## How triggering works
 
-### 📑 File Descriptions
+CineLink intentionally ignores most Notion updates; it only considers a webhook “actionable” when:
 
-- **`main.rs`**: Entry point of the application. Sets up the server, initializes logging, and manages module imports.
+- The event type is `page.properties_updated`, and
+- The updated properties include either:
+  - `title` (Notion’s webhook field name), or
+  - the Season property update marker seen in production payloads (`Siv%5D`), or a decoded `Season`
 
-- **`models.rs`**: Contains data structures for:
-  - `Movie`: Represents a movie with title, rating, and identifiers
-  - `TvShow`: Represents a TV show with season information
-  - `TvSeason`: Detailed TV season information including cast and trailers
+Then, after fetching the page:
 
-- **`notion.rs`**: Handles all Notion database operations:
-  - Movie addition and updates
-  - TV show updates
-  - Rating synchronization
-  - Database querying
+- If the page title does not end with `;`, CineLink does nothing.
+- Movies: title `"<something>;"` is enough.
+- TV: title must end with `;` and a season must be present; otherwise the update is silently ignored.
 
-- **`plex.rs`**: Manages Plex server interactions:
-  - Movie library scanning
-  - Rating retrieval and updates
-  - XML response parsing
+If CineLink cannot match a title to TMDB, it updates the Notion title to an error form like:
 
-- **`server.rs`**: HTTP server implementation:
-  - API endpoint definitions
-  - Request handling
-  - Authentication middleware
-  - Error handling
+`<original title>; | No TMDB movie match`
 
-- **`sync.rs`**: Core synchronization logic:
-  - Bidirectional sync between Plex and Notion
-  - Batch processing
-  - Conflict resolution
+## Supported title inputs
 
-- **`tmdb.rs`**: TMDB API integration:
-  - TV show search
-  - Season details retrieval
-  - Cast and trailer information
-  - Image URL handling
+When the title ends with `;`, the content before the semicolon can be:
 
-- **`utils.rs`**: Utility functions:
-  - Rating conversion (numeric to emoji)
-  - Logging setup
-  - Environment variable validation
+- A plain text title (TMDB search is used)
+- A TMDB numeric id (e.g. `2316;`)
+- An IMDb id (e.g. `tt22202452;`) via TMDB “Find by ID”
 
-## 🚀 Getting Started
+## Notion database requirements
 
-### Prerequisites
+Your Notion database must have properties with the expected names (CineLink also tries to infer types from a fetched page if the database schema is unavailable).
 
-- 🔑 Plex server with API access
-- 📘 Notion database with specific properties
-- 🎥 TMDB API key
-- 🐳 Docker (optional)
+The authoritative list of properties CineLink populates is in `docs/db_properties.md`.
 
-### Required Notion Database Properties
+## Configuration (.env)
 
-#### Movies
-- `Name` (Title)
-- `Aurel's rating` (Select) with emoji options:
-  - 🌗 (1/10)
-  - 🌕 (2/10)
-  - 🌕🌗 (3/10)
-  - 🌕🌕 (4/10)
-  - 🌕🌕🌗 (5/10)
-  - 🌕🌕🌕 (6/10)
-  - 🌕🌕🌕🌗 (7/10)
-  - 🌕🌕🌕🌕 (8/10)
-  - 🌕🌕🌕🌕🌗 (9/10)
-  - 🌕🌕🌕🌕🌕 (10/10)
-- `Years watched` (Multi-select)
+Copy `.env.example` to `.env` and set:
 
-#### TV Shows
-- `Type` (Select) with option "TV Series"
-- `Season` (Select) with options:
-  - "Mini-series"
-  - "Season 1"
-  - "Season 2"
-  etc.
-- `Synopsis` (Rich text)
-- `Cast` (Rich text)
-- `Trailer` (URL)
-- `Year` (Rich text)
+- `NOTION_API_KEY`: Notion Internal Integration Secret (used for Notion API calls)
+- `NOTION_DATABASE_ID`: target database id
+- `NOTION_WEBHOOK_SECRET`: Notion webhook signing secret (used to verify `x-notion-signature`)
+- `TMDB_API_KEY`: TMDB API key
 
-### 🔧 Configuration
-
-1. Copy `.env.example` to `.env`
-2. Fill in your credentials:
-   ```env
-   NOTION_API_KEY=your_notion_api_key
-   NOTION_DATABASE_ID=your_notion_database_id
-   PLEX_URL=your_plex_url
-   PLEX_TOKEN=your_plex_token
-   API_KEY=your_api_key_for_sync
-   TVSHOWS_API_KEY=your_api_key_for_tv_shows
-   TMDB_API_KEY=your_tmdb_api_key
-   ```
-
-### 🐳 Docker Setup
+## Run locally
 
 ```bash
-# Build the image
-docker build -t cinelink:3.1.0 --platform linux/amd64 .
-
-# Run the container
-docker run -d \
-  --name cinelink \
-  -p 3146:3146 \
-  --env-file .env \
-  -v $(pwd)/logs:/app/logs \
-  cinelink:3.1.0
+cargo run --bin cinelink_server
 ```
 
-### 📡 API Endpoints
+Health check:
 
-1. **Movie Sync**
-   ```bash
-   curl -X POST http://server-ip:3146/sync \
-     -H "Authorization: Bearer your_api_key"
-   ```
+```bash
+curl -fsS http://localhost:3146/health
+```
 
-2. **TV Show Update**
-   ```bash
-   curl -X POST http://server-ip:3146/update-tv-shows \
-     -H "Authorization: Bearer your_tvshows_api_key"
-   ```
+Useful debug logging:
 
-## 📝 Logs
+```bash
+RUST_LOG=debug cargo run --bin cinelink_server
+```
 
-Logs are available in two ways:
+## Run with Docker
 
-1. **File Logs**
-   - Stored in `logs/cinelink.log`
-   - Persistent across container restarts when using volume mount
+Build:
 
-2. **Docker Logs**
-   - Available through Docker's logging system
-   - Can be viewed with:
-     ```bash
-     # View logs directly
-     docker logs cinelink
+```bash
+docker build -t cinelink:v4.0.0 .
+```
 
-     # Follow logs
-     docker logs -f cinelink
-     ```
-   - Compatible with logging platforms like [Dozzle](https://dozzle.dev/)
-   - To use with Dozzle:
-     ```bash
-     docker run -d \
-       --name dozzle \
-       -p 8080:8080 \
-       --volume=/var/run/docker.sock:/var/run/docker.sock \
-       amir20/dozzle
-     ```
+Run:
 
-## 🔒 Security
+```bash
+docker run --rm -p 3146:3146 --env-file .env cinelink:v4.0.0
+```
 
-- All endpoints require API key authentication
-- Separate API keys for movie sync and TV show updates
-- Environment variables for sensitive credentials
+Or use `docker-compose.yml`.
 
-## 🤝 Contributing
+Example `docker-compose.yml`:
 
-Feel free to submit issues and pull requests!
+```yaml
+services:
+  cinelink:
+    image: cinelink:v4.0.0
+    container_name: cinelink
+    restart: unless-stopped
+    user: "1000:1000"
+    env_file:
+      - .env
+    ports:
+      - "3146:3146"
+    environment:
+      RUST_LOG: info
+```
 
-## 📄 License
+Using Compose:
 
-MIT License - see LICENSE file for details 
+```bash
+docker compose up -d
+docker compose logs -f cinelink
+```
+
+## Security features (in-app)
+
+- Webhook signature verification (`x-notion-signature`) using `NOTION_WEBHOOK_SECRET` (constant-time comparison).
+- Timestamp freshness enforcement from the webhook `timestamp` field (default window: 5 minutes).
+- Per-IP and global rate limiting.
+- Body size limit (1MB) and strict `Content-Type: application/json`.
+- Event de-duplication by webhook `id` for a short TTL.
+- Limited concurrent processing (defaults to 8).
+
+For production, still run behind a reverse proxy (TLS termination, connection-level rate limiting, and tighter network controls).
+
+## Development
+
+Quality gates (recommended order):
+
+```bash
+cargo check
+cargo test
+cargo clippy -- -D warnings
+cargo fmt
+```
+
+## License
+
+AGPL-3.0-only. See `LICENSE`.

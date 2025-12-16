@@ -1,49 +1,47 @@
-# Stage 1: Base image with cargo-chef installed
-FROM rust:1.82.0-slim-bookworm AS chef
+# Step 1: Chef stage (tooling)
+FROM rust:1.92-alpine AS chef
 WORKDIR /app
-
-# Install necessary build tools and dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install cargo-chef
+# Install musl toolchain deps and CA cert bundle (also copied into runtime image).
+RUN apk add --no-cache musl-dev ca-certificates && \
+    rustup target add x86_64-unknown-linux-musl
+# Cargo-chef speeds up rebuilds by caching dependency compilation in a separate layer.
 RUN cargo install cargo-chef
 
-# Stage 2: Planning stage to prepare the build recipe
+# Step 2: Planner stage (dependency recipe)
+# - Generates recipe.json used to cache Rust dependencies across rebuilds
 FROM chef AS planner
-COPY . .
+# Copy only what is needed for dependency analysis.
+COPY Cargo.toml Cargo.lock ./
+COPY src src
+# Generate the cargo-chef recipe.
 RUN cargo chef prepare --recipe-path recipe.json
 
-# Stage 3: Building dependencies based on the recipe
+# Step 3: Builder stage (compile + link)
+# - Builds dependencies using the recipe (cacheable)
+# - Builds the final release binary for musl
 FROM chef AS builder
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-
-# Build the actual application
+# Reuse the dependency recipe from the planner stage.
+COPY --from=planner /app/recipe.json /app/recipe.json
+# Build dependencies based on the recipe (cached across rebuilds).
+RUN cargo chef cook --release --target x86_64-unknown-linux-musl --recipe-path recipe.json
+# Copy the full app source (filtered by .dockerignore).
 COPY . .
-RUN cargo build --release
+# Produce the release binary for the musl target.
+RUN cargo build --release --target x86_64-unknown-linux-musl --bin cinelink_server
 
-# Stage 4: Create a minimal runtime image
-FROM debian:bookworm-slim
+# Step 4: Runtime stage (distroless)
+# - Copies the static binary + CA bundle into a minimal runtime image
+FROM gcr.io/distroless/static-debian13
 WORKDIR /app
-
-# Install necessary runtime dependencies
-RUN apt-get update && apt-get install -y \
-    ca-certificates \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy the built binary from the builder stage
-COPY --from=builder /app/target/release/CineLink .
-
-# Create directory for logs
-RUN mkdir -p /app/logs
-
-# Expose the port the app runs on
+# App binary.
+COPY --from=builder /app/target/x86_64-unknown-linux-musl/release/cinelink_server /app/cinelink_server
+# CA certificates for outbound HTTPS (Notion + TMDB).
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
+# Tell TLS libraries where to find the CA bundle in this minimal image.
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+# Webhook listener port.
 EXPOSE 3146
-
-# Set the command to run the CineLink application
-CMD ["./CineLink"]
-
+# Drop privileges.
+USER nonroot
+# Start the server.
+ENTRYPOINT ["/app/cinelink_server"]

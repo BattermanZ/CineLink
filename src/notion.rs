@@ -1,560 +1,440 @@
-use anyhow::{Result, anyhow};
-use chrono::{Local, Datelike};
-use log::{info, error, debug};
+use anyhow::{Context, Result};
+use async_trait::async_trait;
 use reqwest::Client;
-use serde_json::json;
-use tokio::task;
-use futures::future::join_all;
+use serde_json::{json, Map, Value};
+use std::collections::HashMap;
+use std::env;
+use std::time::Duration;
+use tracing::warn;
 
-use crate::models::{Movie, TvShow, TvSeason};
-use crate::utils::numeric_to_emoji_rating;
-use crate::tmdb::{get_tv_season_details, search_tv_show, TvSeasonDetails};
+use crate::notion_fallback::fallback_schema;
 
-pub async fn get_notion_movie_info(client: &Client, headers: &reqwest::header::HeaderMap, movie_title: &str, database_id: &str) -> Result<(bool, Option<String>, bool)> {
-    let query_url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
-    let query_payload = json!({
-        "filter": {
-            "or": [
-                {"property": "Name", "title": {"contains": movie_title}},
-                {"property": "Eng Name", "rich_text": {"contains": movie_title}}
-            ]
-        }
-    });
+pub const NOTION_VERSION: &str = "2025-09-03";
 
-    let response = client.post(&query_url)
-        .headers(headers.clone())
-        .json(&query_payload)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        let result: serde_json::Value = response.json().await?;
-
-        let empty_vec: Vec<serde_json::Value> = Vec::new();
-        let results = result["results"].as_array().unwrap_or(&empty_vec);
-
-        if results.is_empty() {
-            Ok((false, None, false))
-        } else {
-            let page = &results[0];
-            let page_id = page["id"].as_str().map(|s| s.to_string());
-            let rating_emoji = page["properties"]["Aurel's rating"]["select"]["name"].as_str();
-            let has_rating = rating_emoji.is_some();
-            Ok((true, page_id, has_rating))
-        }
-    } else {
-        Err(anyhow!("Failed to query Notion for '{}'. Status: {}", movie_title, response.status()))
-    }
+#[derive(Debug, Clone)]
+pub struct NotionClient {
+    client: Client,
+    api_key: String,
+    pub database_id: String,
 }
 
-pub async fn add_movie(client: &Client, notion_url: &str, headers: &reqwest::header::HeaderMap, movie: &Movie, database_id: &str) -> Result<()> {
-    let movie_title = &movie.title;
-    let movie_rating = numeric_to_emoji_rating(movie.rating);
-    let notion_movie_title = format!("{};", movie_title);
-    let current_year = Local::now().year().to_string();
-
-    let payload = json!({
-        "parent": {"database_id": database_id},
-        "properties": {
-            "Name": {
-                "title": [
-                    {"text": {"content": notion_movie_title}}
-                ]
-            },
-            "Aurel's rating": {
-                "select": {"name": movie_rating}
-            },
-            "Years watched": {
-                "multi_select": [{"name": current_year}]
-            }
-        }
-    });
-
-    let response = client.post(notion_url)
-        .headers(headers.clone())
-        .json(&payload)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        info!("Movie '{}' added to Notion with rating: '{}', Year: '{}'", movie_title, movie_rating, current_year);
-        Ok(())
-    } else {
-        Err(anyhow!("Failed to add '{}' to Notion. Status: {}", movie_title, response.status()))
-    }
+#[async_trait]
+pub trait NotionApi: Send + Sync {
+    async fn fetch_property_schema(&self) -> Result<PropertySchema>;
+    async fn fetch_page(&self, page_id: &str) -> Result<Value>;
+    async fn update_page(
+        &self,
+        page_id: &str,
+        properties: Map<String, Value>,
+        icon: Option<Value>,
+        cover: Option<Value>,
+    ) -> Result<()>;
 }
 
-pub async fn update_movie_rating_in_notion(client: &Client, headers: &reqwest::header::HeaderMap, page_id: &str, movie_title: &str, rating: f32) -> Result<()> {
-    let notion_page_url = format!("https://api.notion.com/v1/pages/{}", page_id);
-    let movie_rating = numeric_to_emoji_rating(rating);
-
-    let payload = json!({
-        "properties": {
-            "Aurel's rating": {
-                "select": {
-                    "name": movie_rating
-                }
-            }
-        }
-    });
-
-    let response = client.patch(&notion_page_url)
-        .headers(headers.clone())
-        .json(&payload)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        info!("Updated Notion rating for movie '{}' to '{}'", movie_title, movie_rating);
-        Ok(())
-    } else {
-        Err(anyhow!("Failed to update Notion rating for movie '{}'. Status: {}", movie_title, response.status()))
-    }
+#[derive(Debug, Clone, PartialEq)]
+pub enum PropertyType {
+    Title,
+    RichText,
+    Url,
+    Number,
+    Select,
+    MultiSelect,
+    Files,
+    Date,
+    Unknown(String),
 }
 
-pub async fn add_movies_in_batch(client: &Client, notion_url: &str, headers: &reqwest::header::HeaderMap, movie_list: &[Movie], database_id: &str) -> Result<String> {
-    let movie_info_futures: Vec<_> = movie_list.iter()
-        .map(|movie| {
-            let client = client.clone();
-            let headers = headers.clone();
-            let database_id = database_id.to_string();
-            let title = movie.title.clone();
-            let rating = movie.rating;
-            task::spawn(async move {
-                match get_notion_movie_info(&client, &headers, &title, &database_id).await {
-                    Ok((exists, page_id, has_rating)) => (title, rating, exists, page_id, has_rating),
-                    Err(_) => (title, rating, false, None, false),
-                }
-            })
+#[derive(Debug, Clone)]
+pub struct PropertySchema {
+    pub types: HashMap<String, PropertyType>,
+    pub title_property: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ValueInput {
+    Text(String),
+    StringList(Vec<String>),
+    Number(f64),
+    Url(String),
+    Date(String),
+}
+
+impl NotionClient {
+    pub fn from_env() -> Result<Self> {
+        let api_key = env::var("NOTION_API_KEY").context("NOTION_API_KEY not set")?;
+        let database_id = env::var("NOTION_DATABASE_ID").context("NOTION_DATABASE_ID not set")?;
+        let user_agent = format!("cinelink/{}", env!("CARGO_PKG_VERSION"));
+        let client = Client::builder()
+            .connect_timeout(Duration::from_secs(5))
+            .timeout(Duration::from_secs(30))
+            .user_agent(user_agent)
+            .build()
+            .context("Failed to build Notion HTTP client")?;
+        Ok(Self {
+            client,
+            api_key,
+            database_id,
         })
-        .collect();
+    }
+}
 
-    let movie_info_results = join_all(movie_info_futures).await;
+#[async_trait]
+impl NotionApi for NotionClient {
+    async fn fetch_property_schema(&self) -> Result<PropertySchema> {
+        let url = format!("https://api.notion.com/v1/databases/{}", self.database_id);
+        let res = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Notion-Version", NOTION_VERSION)
+            .send()
+            .await
+            .context("Failed to fetch Notion database")?;
 
-    let mut movies_to_add = Vec::new();
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read Notion response body")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion database request failed (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
 
-    for result in movie_info_results {
-        if let Ok((title, rating, exists, page_id, has_rating)) = result {
-            if !exists {
-                if let Some(movie) = movie_list.iter().find(|m| m.title == title) {
-                    movies_to_add.push(movie.clone());
-                }
-            } else {
-                if !has_rating {
-                    if let Some(pid) = page_id {
-                        if let Err(e) = update_movie_rating_in_notion(client, headers, &pid, &title, rating).await {
-                            error!("Failed to update rating for '{}': {}", title, e);
-                        }
-                    }
-                }
+        let body: Value =
+            serde_json::from_slice(&bytes).context("Failed to parse database JSON")?;
+        if let Some(props) = body.get("properties").and_then(|p| p.as_object()) {
+            return Ok(schema_from_properties(props));
+        }
+
+        // Fallback: query first page to infer property types (Notion 2025-09-03 may omit properties for synced DBs).
+        match fetch_schema_via_query(&self.client, &self.api_key, &self.database_id).await {
+            Ok(inferred) => Ok(inferred),
+            Err(e) => {
+                warn!(
+                    "Failed to infer schema via query: {}. Using fallback schema.",
+                    e
+                );
+                Ok(fallback_schema())
             }
         }
     }
 
-    if movies_to_add.is_empty() {
-        info!("No new movies to add to Notion.");
-        return Ok("No new movies to add.".to_string());
+    async fn fetch_page(&self, page_id: &str) -> Result<Value> {
+        let url = format!("https://api.notion.com/v1/pages/{}", page_id);
+        let res = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Notion-Version", NOTION_VERSION)
+            .send()
+            .await
+            .context("Failed to fetch Notion page")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read Notion page response")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion page request failed (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        serde_json::from_slice(&bytes).context("Failed to parse page JSON")
     }
 
-    info!("Adding {} movies in batch to Notion...", movies_to_add.len());
+    async fn update_page(
+        &self,
+        page_id: &str,
+        properties: Map<String, Value>,
+        icon: Option<Value>,
+        cover: Option<Value>,
+    ) -> Result<()> {
+        let url = format!("https://api.notion.com/v1/pages/{}", page_id);
+        let mut body = json!({ "properties": properties });
+        if let Some(icon_val) = icon {
+            body["icon"] = icon_val;
+        }
+        if let Some(cover_val) = cover {
+            body["cover"] = cover_val;
+        }
 
-    let add_movie_futures: Vec<_> = movies_to_add.into_iter()
-        .map(|movie| {
-            let client = client.clone();
-            let notion_url = notion_url.to_string();
-            let headers = headers.clone();
-            let database_id = database_id.to_string();
-            task::spawn(async move {
-                add_movie(&client, &notion_url, &headers, &movie, &database_id).await
-            })
+        let res = self
+            .client
+            .patch(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Notion-Version", NOTION_VERSION)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to update Notion page")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read Notion update response")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion page update failed (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        Ok(())
+    }
+}
+
+pub fn extract_title(props: &Map<String, Value>, name: &str) -> Option<String> {
+    props
+        .get(name)
+        .and_then(|p| p.get("title"))
+        .and_then(|t| t.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|item| {
+            item.get("plain_text")
+                .or_else(|| item.get("text")?.get("content"))
         })
-        .collect();
-
-    let results = join_all(add_movie_futures).await;
-    let successful_additions = results.into_iter().filter(|r| r.as_ref().map_or(false, |inner_r| inner_r.is_ok())).count();
-
-    Ok(format!("Batch processing completed. Successfully added {} movies.", successful_additions))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
-pub async fn get_all_notion_movies(client: &Client, headers: &reqwest::header::HeaderMap, database_id: &str) -> Result<Vec<Movie>> {
-    let query_url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
-    let query_payload = json!({
-        "filter": {
-            "property": "Aurel's rating",
-            "select": {
-                "is_not_empty": true
-            }
-        }
-    });
-
-    let response = client.post(&query_url)
-        .headers(headers.clone())
-        .json(&query_payload)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        let result: serde_json::Value = response.json().await?;
-        let movies = result["results"].as_array()
-            .ok_or_else(|| anyhow!("Unexpected response format from Notion"))?
-            .iter()
-            .filter_map(|page| {
-                let title = page["properties"]["Name"]["title"][0]["text"]["content"].as_str()?;
-                let rating_emoji = page["properties"]["Aurel's rating"]["select"]["name"].as_str()?;
-                let rating = match rating_emoji {
-                    "🌗" => 1.0,
-                    "🌕" => 2.0,
-                    "🌕🌗" => 3.0,
-                    "🌕🌕" => 4.0,
-                    "🌕🌕🌗" => 5.0,
-                    "🌕🌕🌕" => 6.0,
-                    "🌕🌕🌕🌗" => 7.0,
-                    "🌕🌕🌕🌕" => 8.0,
-                    "🌕🌕🌕🌕🌗" => 9.0,
-                    "🌕🌕🌕🌕🌕" => 10.0,
-                    _ => return None,
-                };
-                Some(Movie {
-                    title: title.trim_end_matches(';').to_string(),
-                    rating,
-                    rating_key: String::new(),
-                    library_id: String::new(),
-                })
-            })
-            .collect();
-
-        Ok(movies)
-    } else {
-        Err(anyhow!("Failed to query Notion database. Status: {}", response.status()))
-    }
+pub fn extract_select(props: &Map<String, Value>, name: &str) -> Option<String> {
+    props
+        .get(name)
+        .and_then(|p| p.get("select"))
+        .and_then(|s| s.get("name"))
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
-#[allow(dead_code)]
-pub async fn add_tv_season(
-    client: &Client,
-    notion_url: &str,
-    headers: &reqwest::header::HeaderMap,
-    season: &TvSeason,
-    database_id: &str
-) -> Result<()> {
-    let season_title = format!("{} - Season {}", season.show_title, season.season_number);
-    let rating_emoji = season.rating.map(numeric_to_emoji_rating);
-    let current_year = Local::now().year().to_string();
+pub fn extract_rich_text(props: &Map<String, Value>, name: &str) -> Option<String> {
+    props
+        .get(name)
+        .and_then(|p| p.get("rich_text"))
+        .and_then(|t| t.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|item| {
+            item.get("plain_text")
+                .or_else(|| item.get("text")?.get("content"))
+        })
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
+}
 
-    let mut properties = json!({
-        "parent": {"database_id": database_id},
-        "properties": {
-            "Name": {
+pub fn extract_number(props: &Map<String, Value>, name: &str) -> Option<f64> {
+    props
+        .get(name)
+        .and_then(|p| p.get("number"))
+        .and_then(|v| v.as_f64())
+}
+
+pub fn set_title(
+    target: &mut Map<String, Value>,
+    property: &str,
+    value: &str,
+    schema: &PropertySchema,
+) {
+    let prop_type = schema
+        .types
+        .get(property)
+        .cloned()
+        .unwrap_or(PropertyType::Title);
+    if matches!(prop_type, PropertyType::Title) {
+        target.insert(
+            property.to_string(),
+            json!({
                 "title": [
-                    {"text": {"content": format!("{};", season_title)}}
+                    { "text": { "content": value }}
                 ]
-            },
-            "Type": {
-                "select": {"name": "TV Show"}
-            },
-            "Overview": {
+            }),
+        );
+    } else {
+        target.insert(
+            property.to_string(),
+            json!({
                 "rich_text": [
-                    {"text": {"content": season.overview}}
+                    { "text": { "content": value }}
                 ]
-            },
-            "Years watched": {
-                "multi_select": [{"name": current_year}]
-            },
-            "Cast": {
-                "multi_select": season.cast.iter().map(|name| json!({"name": name})).collect::<Vec<_>>()
-            }
-        }
-    });
-
-    // Add optional properties
-    if let Some(rating) = rating_emoji {
-        properties["properties"]["Aurel's rating"] = json!({"select": {"name": rating}});
-    }
-    
-    if let Some(poster_url) = &season.poster_url {
-        properties["properties"]["Poster"] = json!({"url": poster_url});
-    }
-
-    if let Some(air_date) = &season.air_date {
-        properties["properties"]["Release Date"] = json!({"date": {"start": air_date}});
-    }
-
-    if let Some(trailer_url) = &season.trailer_url {
-        properties["properties"]["Trailer"] = json!({"url": trailer_url});
-    }
-
-    let response = client.post(notion_url)
-        .headers(headers.clone())
-        .json(&properties)
-        .send()
-        .await?;
-
-    if response.status().is_success() {
-        info!("TV Season '{}' added to Notion", season_title);
-        Ok(())
-    } else {
-        Err(anyhow!("Failed to add '{}' to Notion. Status: {}", season_title, response.status()))
+            }),
+        );
     }
 }
 
-#[allow(dead_code)]
-pub async fn update_tv_season_with_tmdb_data(
-    client: &Client,
-    notion_url: &str,
-    headers: &reqwest::header::HeaderMap,
-    tv_show: &TvShow,
-    database_id: &str
-) -> Result<()> {
-    // First, search for the TV show on TMDB
-    let tmdb_id = match tv_show.tmdb_id {
-        Some(id) => id,
-        None => search_tv_show(client, &tv_show.title).await?,
-    };
-
-    // Get season details from TMDB
-    let season_details = get_tv_season_details(client, tmdb_id, tv_show.season_number).await?;
-
-    // Find trailer URL (prefer YouTube trailers)
-    let trailer_url = season_details.videos
-        .and_then(|videos| {
-            videos.results
-                .iter()
-                .find(|v| v.site == "YouTube" && v.video_type == "Trailer")
-                .map(|v| format!("https://www.youtube.com/watch?v={}", v.key))
-        });
-
-    // Create poster URL if available
-    let poster_url = season_details.poster_path
-        .map(|path| format!("https://image.tmdb.org/t/p/original{}", path));
-
-    // Extract cast names (limit to main cast)
-    let cast = season_details.credits
-        .map(|credits| {
-            credits.cast
-                .iter()
-                .take(10)  // Limit to top 10 cast members
-                .map(|member| member.name.clone())
-                .collect()
-        })
-        .unwrap_or_default();
-
-    // Create TvSeason object
-    let season = TvSeason {
-        show_title: tv_show.title.clone(),
-        season_number: tv_show.season_number,
-        overview: season_details.overview,
-        poster_url,
-        air_date: season_details.air_date,
-        cast,
-        trailer_url,
-        rating: Some(tv_show.rating),
-        rating_key: tv_show.rating_key.clone(),
-        library_id: tv_show.library_id.clone(),
-    };
-
-    // Add to Notion
-    add_tv_season(client, notion_url, headers, &season, database_id).await
-}
-
-pub async fn update_tv_shows_with_tmdb(
-    client: &Client,
-    _notion_url: &str,
-    headers: &reqwest::header::HeaderMap,
-    database_id: &str,
-) -> Result<()> {
-    // Query for TV Series entries
-    let query_url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
-    let query_payload = json!({
-        "filter": {
-            "property": "Type",
-            "select": {
-                "equals": "TV Series"
-            }
-        }
-    });
-
-    let response = client.post(&query_url)
-        .headers(headers.clone())
-        .json(&query_payload)
-        .send()
-        .await?;
-
-    if !response.status().is_success() {
-        return Err(anyhow!("Failed to query Notion database. Status: {}", response.status()));
-    }
-
-    let result: serde_json::Value = response.json().await?;
-    let pages = result["results"].as_array()
-        .ok_or_else(|| anyhow!("Unexpected response format from Notion"))?;
-
-    for page in pages {
-        let page_id = page["id"].as_str()
-            .ok_or_else(|| anyhow!("Missing page ID"))?;
-        
-        let title = page["properties"]["Name"]["title"][0]["text"]["content"].as_str()
-            .ok_or_else(|| anyhow!("Missing title"))?
-            .trim_end_matches(';')
-            .to_string();
-
-        // Skip if Season property is not set
-        let season_select = page["properties"]["Season"]["select"].as_object();
-        if season_select.is_none() || season_select.unwrap().is_empty() {
-            debug!("Skipping {} - Season property not set", title);
+pub fn merge_schema_from_props(schema: &mut PropertySchema, props: &Map<String, Value>) {
+    for (name, prop) in props {
+        if schema.types.contains_key(name) {
             continue;
         }
-
-        // Get the Season property value
-        let season_str = match page["properties"]["Season"]["select"]["name"].as_str() {
-            Some(s) => s,
-            None => {
-                error!("Missing Season name for {}", title);
-                continue;
+        if let Some(t) = prop.get("type").and_then(|v| v.as_str()) {
+            let mapped = match t {
+                "title" => PropertyType::Title,
+                "rich_text" => PropertyType::RichText,
+                "url" => PropertyType::Url,
+                "number" => PropertyType::Number,
+                "select" => PropertyType::Select,
+                "multi_select" => PropertyType::MultiSelect,
+                "files" => PropertyType::Files,
+                "date" => PropertyType::Date,
+                other => PropertyType::Unknown(other.to_string()),
+            };
+            if mapped == PropertyType::Title && schema.title_property.is_none() {
+                schema.title_property = Some(name.clone());
             }
-        };
+            schema.types.insert(name.clone(), mapped);
+        }
+    }
+}
 
-        // Parse season number
-        let season_number = match season_str {
-            "Mini-series" => 1,
-            s if s.starts_with("Season ") => {
-                match s.trim_start_matches("Season ").parse::<i32>() {
-                    Ok(num) => num,
-                    Err(_) => {
-                        error!("Invalid season format for {}: {}", title, s);
-                        continue;
-                    }
-                }
-            },
-            _ => {
-                error!("Unexpected season format for {}: {}", title, season_str);
-                continue;
+fn schema_from_properties(props: &Map<String, Value>) -> PropertySchema {
+    let mut types = HashMap::new();
+    let mut title_property = None;
+
+    for (name, def) in props {
+        if let Some(t) = def.get("type").and_then(|v| v.as_str()) {
+            let mapped = match t {
+                "title" => PropertyType::Title,
+                "rich_text" => PropertyType::RichText,
+                "url" => PropertyType::Url,
+                "number" => PropertyType::Number,
+                "select" => PropertyType::Select,
+                "multi_select" => PropertyType::MultiSelect,
+                "files" => PropertyType::Files,
+                "date" => PropertyType::Date,
+                other => PropertyType::Unknown(other.to_string()),
+            };
+            if mapped == PropertyType::Title {
+                title_property = Some(name.clone());
             }
-        };
-
-        info!("Updating TV show: {} - {}", title, season_str);
-
-        // Search for show and get TMDB data
-        match search_tv_show(client, &title).await {
-            Ok(tmdb_id) => {
-                debug!("Found TMDB ID {} for show {}", tmdb_id, title);
-                match get_tv_season_details(client, tmdb_id, season_number).await {
-                    Ok(season_details) => {
-                        match update_notion_tv_show_page(
-                            client,
-                            headers,
-                            page_id,
-                            &season_details,
-                        ).await {
-                            Ok(_) => info!("Successfully updated {}", title),
-                            Err(e) => error!("Failed to update Notion page for {}: {}", title, e),
-                        }
-                    }
-                    Err(e) => error!("Failed to get TMDB details for {}: {}", title, e),
-                }
-            }
-            Err(e) => error!("Failed to find TV show on TMDB: {}: {}", title, e),
+            types.insert(name.clone(), mapped);
         }
     }
 
-    Ok(())
+    PropertySchema {
+        types,
+        title_property,
+    }
 }
 
-async fn update_notion_tv_show_page(
+async fn fetch_schema_via_query(
     client: &Client,
-    headers: &reqwest::header::HeaderMap,
-    page_id: &str,
-    season_details: &TvSeasonDetails,
-) -> Result<()> {
-    let notion_page_url = format!("https://api.notion.com/v1/pages/{}", page_id);
-
-    // Create cast list as comma-separated string
-    let cast_text = season_details.credits.as_ref()
-        .map(|credits| {
-            credits.cast.iter()
-                .take(10)
-                .map(|member| member.name.clone())
-                .collect::<Vec<_>>()
-                .join(", ")
-        })
-        .unwrap_or_default();
-
-    // Find trailer (looking specifically for YouTube trailers)
-    let trailer_url = season_details.videos.as_ref()
-        .and_then(|videos| {
-            videos.results.iter()
-                .find(|v| v.site == "YouTube" && v.video_type == "Trailer")
-                .map(|v| format!("https://www.youtube.com/watch?v={}", v.key))
-        });
-
-    // Extract year from air date
-    let year = season_details.air_date
-        .as_ref()
-        .and_then(|date| date.split('-').next())
-        .unwrap_or("").to_string();
-
-    // Create page properties update
-    let mut properties = json!({
-        "Synopsis": {
-            "rich_text": [
-                {"text": {"content": season_details.overview}}
-            ]
-        },
-        "Cast": {
-            "rich_text": [
-                {"text": {"content": cast_text}}
-            ]
-        },
-        "Year": {
-            "rich_text": [
-                {"text": {"content": year}}
-            ]
-        }
-    });
-
-    if let Some(url) = trailer_url {
-        properties["Trailer"] = json!({"url": url});
-    }
-
-    // Create update payload
-    let mut update_payload = json!({
-        "properties": properties
-    });
-
-    // Add cover and icon if poster is available
-    if let Some(poster_path) = &season_details.poster_path {
-        let poster_url = format!("https://image.tmdb.org/t/p/original{}", poster_path);
-        
-        // Set cover image
-        update_payload["cover"] = json!({
-            "type": "external",
-            "external": {
-                "url": poster_url.clone()
-            }
-        });
-
-        // Set page icon
-        update_payload["icon"] = json!({
-            "type": "external",
-            "external": {
-                "url": poster_url
-            }
-        });
-    }
-
-    debug!("Updating Notion page with payload: {}", serde_json::to_string_pretty(&update_payload)?);
-
-    let response = client.patch(&notion_page_url)
-        .headers(headers.clone())
-        .json(&update_payload)
+    api_key: &str,
+    database_id: &str,
+) -> Result<PropertySchema> {
+    let url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
+    let res = client
+        .post(&url)
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Notion-Version", NOTION_VERSION)
+        .json(&json!({ "page_size": 1 }))
         .send()
-        .await?;
+        .await
+        .context("Failed to query Notion database for schema inference")?;
 
-    let status = response.status();
+    let status = res.status();
+    let bytes = res
+        .bytes()
+        .await
+        .context("Failed to read Notion query response")?;
     if !status.is_success() {
-        let error_text = response.text().await?;
-        error!("Failed to update Notion page. Status: {}, Response: {}", status, error_text);
-        return Err(anyhow!("Failed to update Notion page. Status: {}", status));
+        return Err(anyhow::anyhow!(
+            "Notion query failed (status {}): {}",
+            status,
+            String::from_utf8_lossy(&bytes)
+        ));
     }
 
-    Ok(())
+    let body: Value =
+        serde_json::from_slice(&bytes).context("Failed to parse Notion query JSON")?;
+    let props = body
+        .get("results")
+        .and_then(|r| r.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|first| first.get("properties"))
+        .and_then(|p| p.as_object())
+        .ok_or_else(|| anyhow::anyhow!("No properties found in Notion query response"))?;
+
+    Ok(schema_from_properties(props))
+}
+pub fn set_value(
+    target: &mut Map<String, Value>,
+    property: &str,
+    value: Option<ValueInput>,
+    schema: &PropertySchema,
+) {
+    let Some(val) = value else {
+        return;
+    };
+    let prop_type = schema
+        .types
+        .get(property)
+        .cloned()
+        .unwrap_or(PropertyType::RichText);
+
+    let payload = match prop_type {
+        PropertyType::Title => Some(json!({
+            "title": [
+                { "text": { "content": string_value(val.clone()) } }
+            ]
+        })),
+        PropertyType::RichText | PropertyType::Unknown(_) => Some(json!({
+            "rich_text": [
+                { "text": { "content": string_value(val) } }
+            ]
+        })),
+        PropertyType::Url => string_value_opt(val).map(|s| json!({ "url": s })),
+        PropertyType::Number => match val {
+            ValueInput::Number(n) => Some(json!({ "number": n })),
+            _ => None,
+        },
+        PropertyType::Select => string_value_opt(val).map(|s| json!({ "select": { "name": s } })),
+        PropertyType::MultiSelect => Some(json!({
+            "multi_select": match val {
+                ValueInput::StringList(list) => list.into_iter().map(|n| json!({ "name": n })).collect::<Vec<_>>(),
+                other => vec![json!({ "name": string_value(other) })],
+            }
+        })),
+        PropertyType::Files => string_value_opt(val).map(|s| {
+            json!({
+                "files": [{
+                    "name": "external",
+                    "type": "external",
+                    "external": { "url": s }
+                }]
+            })
+        }),
+        PropertyType::Date => string_value_opt(val).map(|s| json!({ "date": { "start": s } })),
+    };
+
+    if let Some(p) = payload {
+        target.insert(property.to_string(), p);
+    }
 }
 
+fn string_value(val: ValueInput) -> String {
+    match val {
+        ValueInput::Text(s) => s,
+        ValueInput::StringList(list) => list.join(", "),
+        ValueInput::Number(n) => n.to_string(),
+        ValueInput::Url(s) => s,
+        ValueInput::Date(s) => s,
+    }
+}
+
+fn string_value_opt(val: ValueInput) -> Option<String> {
+    match val {
+        ValueInput::Text(s) => Some(s),
+        ValueInput::StringList(list) => list.first().cloned(),
+        ValueInput::Number(_) => None,
+        ValueInput::Url(s) => Some(s),
+        ValueInput::Date(s) => Some(s),
+    }
+}
