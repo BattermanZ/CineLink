@@ -6,7 +6,7 @@ use axum::{
     body::Bytes,
     extract::State,
     http::{header, HeaderMap, StatusCode},
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use chrono::{DateTime, Utc};
@@ -16,7 +16,8 @@ use serde_json::json;
 use sha2::Sha256;
 use std::{collections::HashMap, env, net::SocketAddr, sync::Arc};
 use tokio::sync::Mutex;
-use tracing::{error, info, warn};
+use tokio::sync::Semaphore;
+use tracing::{debug, error, info, warn};
 
 const MAX_BODY_BYTES: usize = 1024 * 1024; // 1MB safety cap
 const PER_IP_LIMIT: u32 = 60; // per minute
@@ -24,6 +25,8 @@ const PER_IP_BURST: u32 = 10;
 const GLOBAL_LIMIT: u32 = 200; // per minute
 const GLOBAL_BURST: u32 = 20;
 const MAX_SKEW_SECS: i64 = 300; // 5 minutes freshness window
+const DEDUPE_TTL_SECS: i64 = 600; // 10 minutes
+const MAX_CONCURRENT_JOBS: usize = 8;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -34,6 +37,8 @@ pub struct AppState {
     pub signing_secret: String,
     pub rate_limits: Arc<Mutex<HashMap<String, WindowCounter>>>,
     pub global_limit: Arc<Mutex<WindowCounter>>,
+    pub recent_events: Arc<Mutex<HashMap<String, i64>>>,
+    pub processing_sem: Arc<Semaphore>,
 }
 
 #[derive(Clone, Debug)]
@@ -69,6 +74,8 @@ pub async fn run_server() -> Result<()> {
         window: 0,
         count: 0,
     }));
+    let recent_events = Arc::new(Mutex::new(HashMap::new()));
+    let processing_sem = Arc::new(Semaphore::new(MAX_CONCURRENT_JOBS));
 
     let state = AppState {
         notion,
@@ -78,6 +85,8 @@ pub async fn run_server() -> Result<()> {
         signing_secret,
         rate_limits,
         global_limit,
+        recent_events,
+        processing_sem,
     };
 
     let app = build_router(state);
@@ -94,7 +103,12 @@ pub async fn run_server() -> Result<()> {
 pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/", post(handle_webhook))
+        .route("/health", get(health))
         .with_state(state)
+}
+
+async fn health() -> StatusCode {
+    StatusCode::OK
 }
 
 async fn handle_webhook(
@@ -154,6 +168,12 @@ async fn handle_webhook(
         return StatusCode::BAD_REQUEST;
     }
 
+    if let Some(event_id) = payload.get("id").and_then(|v| v.as_str()) {
+        if !dedupe_event(&state, event_id).await {
+            return StatusCode::OK;
+        }
+    }
+
     let updated_raw = payload
         .get("data")
         .and_then(|d| d.get("updated_properties"))
@@ -186,19 +206,36 @@ async fn handle_webhook(
         .and_then(|e| e.get("id"))
         .and_then(|v| v.as_str())
     {
-        Some(id) => id,
+        Some(id) => id.to_string(),
         None => return StatusCode::BAD_REQUEST,
     };
 
-    if let Err(err) = process_page(&state, page_id).await {
-        error!("Failed to process page {}: {:?}", page_id, err);
-        return StatusCode::INTERNAL_SERVER_ERROR;
-    }
+    let event_id = payload
+        .get("id")
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string());
+
+    info!("Accepted webhook for processing page {}", page_id);
+
+    let state_for_task = state.clone();
+    let page_id_for_task = page_id.clone();
+    tokio::spawn(async move {
+        let _permit = match state_for_task.processing_sem.clone().acquire_owned().await {
+            Ok(p) => p,
+            Err(_) => return,
+        };
+
+        if let Err(err) =
+            process_page(&state_for_task, &page_id_for_task, event_id.as_deref()).await
+        {
+            error!("Failed to process page: {:?}", err);
+        }
+    });
 
     StatusCode::OK
 }
 
-async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
+async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -> Result<()> {
     let page = state.notion.fetch_page(page_id).await?;
     let props = page
         .get("properties")
@@ -257,10 +294,6 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
                 return Ok(());
             }
         };
-        info!(
-            "Fetching TMDB data for TV '{}', season {} (matched id {:?})",
-            clean_title, season, resolved_id
-        );
         let show_id = match resolved_id {
             Some(id) => id,
             None => match state.tmdb.resolve_tv_id(&clean_title).await {
@@ -280,6 +313,10 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
                 }
             },
         };
+        info!(
+            "Fetching TMDB data for TV '{}' (tmdb id {}), season {}",
+            clean_title, show_id, season
+        );
         match state.tmdb.fetch_tv_season(show_id, season).await {
             Ok(data) => data,
             Err(e) => {
@@ -300,10 +337,6 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
             }
         }
     } else {
-        info!(
-            "Fetching TMDB data for Movie '{}' (matched id {:?})",
-            clean_title, resolved_id
-        );
         let movie_id = match resolved_id {
             Some(id) => id,
             None => match state.tmdb.resolve_movie_id(&clean_title).await {
@@ -323,6 +356,10 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
                 }
             },
         };
+        info!(
+            "Fetching TMDB data for Movie '{}' (tmdb id {})",
+            clean_title, movie_id
+        );
         match state.tmdb.fetch_movie(movie_id).await {
             Ok(data) => data,
             Err(e) => {
@@ -342,6 +379,14 @@ async fn process_page(state: &AppState, page_id: &str) -> Result<()> {
     };
 
     info!("Matched '{}' -> '{}'", raw_title, tmdb_media.name);
+    debug!(
+        page_id = %page_id,
+        event_id = ?event_id,
+        original_title = %raw_title,
+        updated_title = %tmdb_media.name,
+        tmdb_id = tmdb_media.id,
+        "Processing context"
+    );
 
     let mut updates = serde_json::Map::new();
     notion::set_title(
@@ -598,4 +643,15 @@ fn is_fresh_timestamp(payload: &serde_json::Value) -> bool {
     let now = Utc::now();
     let diff = (now - parsed).num_seconds().abs();
     diff <= MAX_SKEW_SECS
+}
+
+async fn dedupe_event(state: &AppState, event_id: &str) -> bool {
+    let now = Utc::now().timestamp();
+    let mut guard = state.recent_events.lock().await;
+    guard.retain(|_, ts| now - *ts <= DEDUPE_TTL_SECS);
+    if guard.contains_key(event_id) {
+        return false;
+    }
+    guard.insert(event_id.to_string(), now);
+    true
 }

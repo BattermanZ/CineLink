@@ -10,6 +10,7 @@ use serde_json::{json, Map, Value};
 use sha2::Sha256;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use std::time::Duration;
 use tower::util::ServiceExt;
 
 const WEBHOOK_SECRET: &str = "test-secret";
@@ -227,13 +228,21 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
             window: 0,
             count: 0,
         })),
+        recent_events: Arc::new(tokio::sync::Mutex::new(std::collections::HashMap::new())),
+        processing_sem: Arc::new(tokio::sync::Semaphore::new(8)),
     };
 
     (build_router(state), notion)
 }
 
 fn webhook_payload(updated: &[&str], page_id: &str) -> String {
+    let id = format!(
+        "evt-{}-{}",
+        page_id,
+        updated.iter().copied().collect::<Vec<_>>().join(",")
+    );
     json!({
+        "id": id,
         "timestamp": Utc::now().to_rfc3339(),
         "type": "page.properties_updated",
         "entity": { "id": page_id, "type": "page" },
@@ -242,6 +251,28 @@ fn webhook_payload(updated: &[&str], page_id: &str) -> String {
         }
     })
     .to_string()
+}
+
+async fn wait_for_update_count(notion: &Arc<FakeNotion>, expected: usize) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if notion.updates.lock().unwrap().len() >= expected {
+            return;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            panic!(
+                "timed out waiting for {} updates (got {})",
+                expected,
+                notion.updates.lock().unwrap().len()
+            );
+        }
+        tokio::task::yield_now().await;
+    }
+}
+
+async fn assert_no_updates(notion: &Arc<FakeNotion>) {
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    assert!(notion.updates.lock().unwrap().is_empty());
 }
 
 fn sign_body(body: &str) -> String {
@@ -275,7 +306,7 @@ async fn ignores_when_title_has_no_semicolon() {
     let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(notion.updates.lock().unwrap().is_empty());
+    assert_no_updates(&notion).await;
 }
 
 #[tokio::test]
@@ -294,6 +325,7 @@ async fn updates_movie_when_title_has_semicolon() {
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
+    wait_for_update_count(&notion, 1).await;
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
     let (_id, props, icon, cover) = &updates[0];
@@ -339,7 +371,7 @@ async fn ignores_tv_without_season() {
     let payload = webhook_payload(&["season"], page.get("id").unwrap().as_str().unwrap());
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
-    assert!(notion.updates.lock().unwrap().is_empty());
+    assert_no_updates(&notion).await;
 }
 
 #[tokio::test]
@@ -361,6 +393,7 @@ async fn updates_tv_with_season() {
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
+    wait_for_update_count(&notion, 1).await;
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
     let (_id, props, icon, cover) = &updates[0];
@@ -408,6 +441,7 @@ async fn resolves_imdb_id_for_movie() {
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
+    wait_for_update_count(&notion, 1).await;
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
     let (_id, props, _, _) = &updates[0];
@@ -442,6 +476,7 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
+    wait_for_update_count(&notion, 1).await;
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
     let (_id, props, _, _) = &updates[0];
@@ -499,6 +534,7 @@ async fn uses_original_title_for_french_with_eng_name_set() {
     let res = app.oneshot(signed_request(payload)).await.unwrap();
     assert_eq!(res.status(), StatusCode::OK);
 
+    wait_for_update_count(&notion, 1).await;
     let updates = notion.updates.lock().unwrap();
     assert_eq!(updates.len(), 1);
     let (_id, props, _, _) = &updates[0];
