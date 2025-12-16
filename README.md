@@ -132,11 +132,6 @@ For production, still run behind a reverse proxy (TLS termination, connection-le
 
 ## Development
 
-This repo includes small debug binaries used during development:
-
-- `cargo run --bin notion_props` (inspect Notion property shapes)
-- `cargo run --bin tmdb_props -- <movie|tv> <id> [season]` (inspect TMDB-derived fields)
-
 Quality gates (recommended order):
 
 ```bash
