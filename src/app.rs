@@ -217,7 +217,11 @@ async fn handle_webhook(
         .and_then(|v| v.as_str())
         .map(|s| s.to_string());
 
-    info!("Accepted webhook for processing page {}", page_id);
+    debug!(
+        page_id = %page_id,
+        event_id = ?event_id,
+        "Webhook accepted; queued page check"
+    );
 
     let state_for_task = state.clone();
     let page_id_for_task = page_id.clone();
