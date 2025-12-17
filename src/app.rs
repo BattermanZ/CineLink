@@ -227,8 +227,9 @@ async fn handle_webhook(
             Err(_) => return,
         };
 
-        if let Err(err) =
-            process_page(&state_for_task, &page_id_for_task, event_id.as_deref()).await
+        if let Err(err) = process_page(&state_for_task, &page_id_for_task, event_id.as_deref())
+            .await
+            .map(|_| ())
         {
             error!("Failed to process page: {:?}", err);
         }
@@ -237,7 +238,20 @@ async fn handle_webhook(
     StatusCode::OK
 }
 
-async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -> Result<()> {
+pub async fn process_page_backfill_tv(state: &AppState, page_id: &str) -> Result<bool> {
+    process_page_inner(state, page_id, None, false).await
+}
+
+async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -> Result<bool> {
+    process_page_inner(state, page_id, event_id, true).await
+}
+
+async fn process_page_inner(
+    state: &AppState,
+    page_id: &str,
+    event_id: Option<&str>,
+    require_semicolon: bool,
+) -> Result<bool> {
     let page = state.notion.fetch_page(page_id).await?;
     let props = page
         .get("properties")
@@ -250,12 +264,19 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
 
     let raw_title = notion::extract_title(props, &state.title_property).unwrap_or_default();
 
-    if !raw_title.ends_with(';') {
-        return Ok(());
-    }
-
-    let clean_title = raw_title.trim_end_matches(';').trim().to_string();
-    info!("Received trigger for page '{}'", raw_title);
+    let clean_title = if require_semicolon {
+        if !raw_title.ends_with(';') {
+            return Ok(false);
+        }
+        info!("Received trigger for page '{}'", raw_title);
+        raw_title.trim_end_matches(';').trim().to_string()
+    } else {
+        if raw_title.trim().is_empty() || raw_title.ends_with(';') {
+            return Ok(false);
+        }
+        info!("Backfill updating page '{}'", raw_title);
+        raw_title.trim().to_string()
+    };
 
     let type_value = notion::extract_select(props, "Type");
     let is_tv = type_value
@@ -293,7 +314,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
             Some(s) => s,
             None => {
                 warn!("TV item missing or invalid season, skipping");
-                return Ok(());
+                return Ok(false);
             }
         };
         let show_id = match resolved_id {
@@ -311,7 +332,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
                         "No TMDB TV match",
                     )
                     .await?;
-                    return Ok(());
+                    return Ok(false);
                 }
             },
         };
@@ -335,7 +356,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
                     "No TMDB TV match",
                 )
                 .await?;
-                return Ok(());
+                return Ok(false);
             }
         }
     } else {
@@ -354,7 +375,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
                         "No TMDB movie match",
                     )
                     .await?;
-                    return Ok(());
+                    return Ok(false);
                 }
             },
         };
@@ -375,7 +396,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
                     "No TMDB movie match",
                 )
                 .await?;
-                return Ok(());
+                return Ok(false);
             }
         }
     };
@@ -524,7 +545,7 @@ async fn process_page(state: &AppState, page_id: &str, event_id: Option<&str>) -
         "Finished update for page '{}' -> '{}'",
         raw_title, tmdb_media.name
     );
-    Ok(())
+    Ok(true)
 }
 
 async fn set_error_title(

@@ -1,11 +1,13 @@
 use anyhow::{Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
+use serde::Deserialize;
 use serde_json::{json, Map, Value};
 use std::collections::HashMap;
 use std::env;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use tracing::warn;
+use tracing::{info, warn};
 
 use crate::notion_fallback::fallback_schema;
 
@@ -16,6 +18,14 @@ pub struct NotionClient {
     client: Client,
     api_key: String,
     pub database_id: String,
+    data_source_id: Arc<Mutex<Option<String>>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct DatabaseQueryResponse {
+    pub results: Vec<Value>,
+    pub has_more: bool,
+    pub next_cursor: Option<String>,
 }
 
 #[async_trait]
@@ -63,6 +73,9 @@ impl NotionClient {
     pub fn from_env() -> Result<Self> {
         let api_key = env::var("NOTION_API_KEY").context("NOTION_API_KEY not set")?;
         let database_id = env::var("NOTION_DATABASE_ID").context("NOTION_DATABASE_ID not set")?;
+        let data_source_id = env::var("NOTION_DATA_SOURCE_ID")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
         let user_agent = format!("cinelink/{}", env!("CARGO_PKG_VERSION"));
         let client = Client::builder()
             .connect_timeout(Duration::from_secs(5))
@@ -74,7 +87,118 @@ impl NotionClient {
             client,
             api_key,
             database_id,
+            data_source_id: Arc::new(Mutex::new(data_source_id)),
         })
+    }
+
+    async fn resolve_data_source_id(&self) -> Result<String> {
+        if let Some(existing) = self.data_source_id.lock().unwrap().clone() {
+            return Ok(existing);
+        }
+
+        let url = format!("https://api.notion.com/v1/databases/{}", self.database_id);
+        let res = self
+            .client
+            .get(&url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Notion-Version", NOTION_VERSION)
+            .send()
+            .await
+            .context("Failed to fetch Notion database to resolve data source id")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read Notion database response body")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion database request failed (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        let body: Value =
+            serde_json::from_slice(&bytes).context("Failed to parse database JSON")?;
+        let ds_id = body
+            .get("data_sources")
+            .and_then(|v| v.as_array())
+            .and_then(|arr| arr.first())
+            .and_then(|first| first.get("id"))
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string())
+            .ok_or_else(|| anyhow::anyhow!("Database response did not include data_sources id"))?;
+
+        *self.data_source_id.lock().unwrap() = Some(ds_id.clone());
+        Ok(ds_id)
+    }
+
+    async fn post_query(
+        &self,
+        url: &str,
+        start_cursor: Option<&str>,
+        page_size: usize,
+    ) -> Result<DatabaseQueryResponse> {
+        let mut body = json!({ "page_size": page_size });
+        if let Some(cursor) = start_cursor {
+            body["start_cursor"] = Value::String(cursor.to_string());
+        }
+
+        let res = self
+            .client
+            .post(url)
+            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Notion-Version", NOTION_VERSION)
+            .json(&body)
+            .send()
+            .await
+            .context("Failed to query Notion database")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read Notion query response")?;
+        if !status.is_success() {
+            return Err(anyhow::anyhow!(
+                "Notion query failed (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        serde_json::from_slice(&bytes).context("Failed to parse Notion query JSON")
+    }
+
+    pub async fn query_database_page(
+        &self,
+        start_cursor: Option<&str>,
+        page_size: usize,
+    ) -> Result<DatabaseQueryResponse> {
+        let cached_ds_id = { self.data_source_id.lock().unwrap().clone() };
+        if let Some(ds_id) = cached_ds_id {
+            let url_ds = format!("https://api.notion.com/v1/data_sources/{}/query", ds_id);
+            return self.post_query(&url_ds, start_cursor, page_size).await;
+        }
+
+        let url_db = format!(
+            "https://api.notion.com/v1/databases/{}/query",
+            self.database_id
+        );
+        match self.post_query(&url_db, start_cursor, page_size).await {
+            Ok(r) => Ok(r),
+            Err(e) => {
+                let msg = e.to_string();
+                if msg.contains("\"code\":\"invalid_request_url\"") {
+                    let ds_id = self.resolve_data_source_id().await?;
+                    let url_ds = format!("https://api.notion.com/v1/data_sources/{}/query", ds_id);
+                    info!("Database query endpoint rejected; using data source query endpoint");
+                    return self.post_query(&url_ds, start_cursor, page_size).await;
+                }
+                Err(e)
+            }
+        }
     }
 }
 
@@ -111,7 +235,7 @@ impl NotionApi for NotionClient {
         }
 
         // Fallback: query first page to infer property types (Notion 2025-09-03 may omit properties for synced DBs).
-        match fetch_schema_via_query(&self.client, &self.api_key, &self.database_id).await {
+        match self.infer_schema_via_query().await {
             Ok(inferred) => Ok(inferred),
             Err(e) => {
                 warn!(
@@ -324,45 +448,17 @@ fn schema_from_properties(props: &Map<String, Value>) -> PropertySchema {
     }
 }
 
-async fn fetch_schema_via_query(
-    client: &Client,
-    api_key: &str,
-    database_id: &str,
-) -> Result<PropertySchema> {
-    let url = format!("https://api.notion.com/v1/databases/{}/query", database_id);
-    let res = client
-        .post(&url)
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Notion-Version", NOTION_VERSION)
-        .json(&json!({ "page_size": 1 }))
-        .send()
-        .await
-        .context("Failed to query Notion database for schema inference")?;
-
-    let status = res.status();
-    let bytes = res
-        .bytes()
-        .await
-        .context("Failed to read Notion query response")?;
-    if !status.is_success() {
-        return Err(anyhow::anyhow!(
-            "Notion query failed (status {}): {}",
-            status,
-            String::from_utf8_lossy(&bytes)
-        ));
+impl NotionClient {
+    async fn infer_schema_via_query(&self) -> Result<PropertySchema> {
+        let resp = self.query_database_page(None, 1).await?;
+        let props = resp
+            .results
+            .first()
+            .and_then(|first| first.get("properties"))
+            .and_then(|p| p.as_object())
+            .ok_or_else(|| anyhow::anyhow!("No properties found in Notion query response"))?;
+        Ok(schema_from_properties(props))
     }
-
-    let body: Value =
-        serde_json::from_slice(&bytes).context("Failed to parse Notion query JSON")?;
-    let props = body
-        .get("results")
-        .and_then(|r| r.as_array())
-        .and_then(|arr| arr.first())
-        .and_then(|first| first.get("properties"))
-        .and_then(|p| p.as_object())
-        .ok_or_else(|| anyhow::anyhow!("No properties found in Notion query response"))?;
-
-    Ok(schema_from_properties(props))
 }
 pub fn set_value(
     target: &mut Map<String, Value>,

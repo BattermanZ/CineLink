@@ -132,6 +132,14 @@ For production, still run behind a reverse proxy (TLS termination, connection-le
 
 ## Development
 
+### One-off TV backfill
+
+If you need to run a one-time “catch up” that updates all TV pages that already have a title (without `;`) and a `Season` selected, use:
+
+```bash
+cargo run --example backfill_tv -- --concurrency 8
+```
+
 Quality gates (recommended order):
 
 ```bash

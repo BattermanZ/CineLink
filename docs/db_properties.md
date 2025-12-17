@@ -20,7 +20,7 @@ Notes:
 | `Cast` | `Rich text` | TMDB cast | Stored as a comma-separated string of names. |
 | `Director` | `Rich text` | Movie director / TV created-by | Stored as a comma-separated string of names. |
 | `Content Rating` | `Select` | US rating | Example values: `PG-13`, `R`, `TV-MA`. |
-| `Country of origin` | `Rich text` | Country list | Stored as a comma-separated string (e.g. `US, GB`). |
+| `Country of origin` | `Rich text` | Country list | Stored as a comma-separated string of country names (e.g. `United States, United Kingdom`). |
 | `Language` | `Select` | Language name | Stored as a full language name (not a 2-letter code). |
 | `Release Date` | `Date` | Release/air date | For TV, this is the season air date. |
 | `Year` | `Rich text` | Release year | Derived from `Release Date`. |
