@@ -10,7 +10,7 @@ use axum::{
     routing::{get, post},
     Router,
 };
-use chrono::{DateTime, Utc};
+use chrono::Utc;
 use constant_time_eq::constant_time_eq;
 use hmac::{Hmac, Mac};
 use serde_json::json;
@@ -25,7 +25,6 @@ const PER_IP_LIMIT: u32 = 60; // per minute
 const PER_IP_BURST: u32 = 10;
 const GLOBAL_LIMIT: u32 = 200; // per minute
 const GLOBAL_BURST: u32 = 20;
-const MAX_SKEW_SECS: i64 = 300; // 5 minutes freshness window
 const DEDUPE_TTL_SECS: i64 = 600; // 10 minutes
 const MAX_CONCURRENT_JOBS: usize = 8;
 const MAX_RATE_LIMIT_ENTRIES: usize = 10_000;
@@ -167,11 +166,6 @@ async fn handle_webhook(
     if payload.get("type").and_then(|v| v.as_str()) != Some("page.properties_updated") {
         warn!("Ignoring event with unsupported type");
         return StatusCode::OK;
-    }
-
-    if !is_fresh_timestamp(&payload) {
-        warn!("Rejecting request: stale or missing timestamp");
-        return StatusCode::BAD_REQUEST;
     }
 
     if let Some(event_id) = payload.get("id").and_then(|v| v.as_str()) {
@@ -914,20 +908,6 @@ async fn check_global_rate_limit(state: &AppState) -> bool {
     }
     guard.count += 1;
     true
-}
-
-fn is_fresh_timestamp(payload: &serde_json::Value) -> bool {
-    let ts_str = match payload.get("timestamp").and_then(|v| v.as_str()) {
-        Some(v) => v,
-        None => return false,
-    };
-    let parsed: DateTime<Utc> = match ts_str.parse() {
-        Ok(v) => v,
-        Err(_) => return false,
-    };
-    let now = Utc::now();
-    let diff = (now - parsed).num_seconds().abs();
-    diff <= MAX_SKEW_SECS
 }
 
 async fn dedupe_event(state: &AppState, event_id: &str) -> bool {
