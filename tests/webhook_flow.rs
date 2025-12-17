@@ -605,6 +605,19 @@ async fn updates_anime_when_title_has_equals() {
         .and_then(|v| v.get("url"))
         .and_then(|v| v.as_str());
     assert_eq!(imdb_page, Some("https://anilist.co/anime/176496"));
+
+    let genre_names = props
+        .get("Genre")
+        .and_then(|v| v.get("multi_select"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.get("name").and_then(|n| n.as_str()).map(str::to_string))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(genre_names.contains(&"Anime".to_string()));
+    assert!(genre_names.contains(&"Animation".to_string()));
 }
 
 #[tokio::test]

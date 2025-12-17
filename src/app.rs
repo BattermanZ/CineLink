@@ -664,7 +664,9 @@ async fn process_anilist_page(
     notion::set_value(
         &mut updates,
         "Genre",
-        Some(notion::ValueInput::StringList(anime.genres)),
+        Some(notion::ValueInput::StringList(with_anime_tags(
+            anime.genres,
+        ))),
         schema,
     );
     notion::set_value(
@@ -780,6 +782,17 @@ async fn process_anilist_page(
         raw_title, updated_title
     );
     Ok(true)
+}
+
+fn with_anime_tags(mut genres: Vec<String>) -> Vec<String> {
+    // Always tag AniList-sourced pages so they're easy to filter in Notion.
+    let tags = ["Anime", "Animation"];
+    let tag_lc: std::collections::HashSet<String> = tags.iter().map(|t| t.to_lowercase()).collect();
+    genres.retain(|g| !tag_lc.contains(&g.to_lowercase()));
+    for tag in tags.into_iter().rev() {
+        genres.insert(0, tag.to_string());
+    }
+    genres
 }
 
 async fn set_error_title(
