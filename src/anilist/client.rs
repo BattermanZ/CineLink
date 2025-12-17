@@ -2,15 +2,31 @@ use anyhow::{anyhow, Context, Result};
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashMap;
+use std::sync::Arc;
 use std::time::Duration;
+use std::time::Instant;
+use tokio::sync::Mutex;
 
 use super::AniListMapped;
 
 const ANILIST_ENDPOINT: &str = "https://graphql.anilist.co";
+const RELATIONS_CACHE_TTL_SECS: u64 = 60 * 60 * 24; // 24 hours
+const TITLE_CACHE_TTL_SECS: u64 = 60 * 60 * 24; // 24 hours
+const MAX_CACHE_ENTRIES: usize = 20_000;
+const MAX_RETRIES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct AniListClient {
     client: Client,
+    relations_cache: Arc<Mutex<HashMap<i32, CacheEntry<RelationsPayload>>>>,
+    title_cache: Arc<Mutex<HashMap<i32, CacheEntry<MediaTitle>>>>,
+}
+
+#[derive(Debug, Clone)]
+struct CacheEntry<T> {
+    inserted_at: Instant,
+    value: T,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -37,7 +53,11 @@ impl AniListClient {
             .user_agent(user_agent)
             .build()
             .context("Failed to build AniList HTTP client")?;
-        Ok(Self { client })
+        Ok(Self {
+            client,
+            relations_cache: Arc::new(Mutex::new(HashMap::new())),
+            title_cache: Arc::new(Mutex::new(HashMap::new())),
+        })
     }
 
     pub async fn fetch_mapped(
@@ -50,6 +70,28 @@ impl AniListClient {
     }
 
     pub(crate) async fn search_id(&self, media_type: AniListMediaType, query: &str) -> Result<i32> {
+        let candidates = self.search_candidates(media_type, query).await?;
+        let normalized = normalize_title_key(query);
+        let best = candidates
+            .iter()
+            .find(|m| {
+                m.english
+                    .as_deref()
+                    .is_some_and(|s| normalize_title_key(s) == normalized)
+                    || m.romaji
+                        .as_deref()
+                        .is_some_and(|s| normalize_title_key(s) == normalized)
+            })
+            .or_else(|| candidates.first())
+            .ok_or_else(|| anyhow!("No AniList match found for '{}'", query))?;
+        Ok(best.id)
+    }
+
+    pub(crate) async fn search_candidates(
+        &self,
+        media_type: AniListMediaType,
+        query: &str,
+    ) -> Result<Vec<SearchCandidate>> {
         #[derive(Deserialize)]
         struct GraphQlResponse<T> {
             data: Option<T>,
@@ -96,10 +138,7 @@ query ($search: String!, $type: MediaType!) {
         });
 
         let res = self
-            .client
-            .post(ANILIST_ENDPOINT)
-            .json(&body)
-            .send()
+            .post_with_retry(|| self.client.post(ANILIST_ENDPOINT).json(&body))
             .await
             .context("AniList search request failed")?;
 
@@ -136,28 +175,28 @@ query ($search: String!, $type: MediaType!) {
             .and_then(|p| p.media)
             .unwrap_or_default();
 
-        let normalized = query.trim().to_ascii_lowercase();
-        let best = hits.iter().find(|m| {
-            m.title.as_ref().is_some_and(|t| {
-                t.english
-                    .as_deref()
-                    .is_some_and(|s| s.trim().to_ascii_lowercase() == normalized)
-                    || t.romaji
-                        .as_deref()
-                        .is_some_and(|s| s.trim().to_ascii_lowercase() == normalized)
+        Ok(hits
+            .into_iter()
+            .map(|m| {
+                let t = m.title.unwrap_or_default();
+                SearchCandidate {
+                    id: m.id,
+                    english: t.english,
+                    romaji: t.romaji,
+                }
             })
-        });
-
-        best.or_else(|| hits.first())
-            .map(|m| m.id)
-            .ok_or_else(|| anyhow!("No AniList match found for '{}'", query))
+            .collect())
     }
 
     pub(crate) async fn fetch_relations(
         &self,
         media_type: AniListMediaType,
         id: i32,
-    ) -> Result<Vec<RelationEdge>> {
+    ) -> Result<RelationsPayload> {
+        if let Some(cached) = self.get_cached_relations(id).await {
+            return Ok(cached);
+        }
+
         #[derive(Deserialize)]
         struct GraphQlResponse<T> {
             data: Option<T>,
@@ -179,10 +218,14 @@ query ($search: String!, $type: MediaType!) {
         let query = r#"
 query ($id: Int!, $type: MediaType!) {
   Media(id: $id, type: $type) {
+    startDate { year month day }
     relations {
       edges {
         relationType
-        node { id }
+        node {
+          id
+          startDate { year month day }
+        }
       }
     }
   }
@@ -195,10 +238,7 @@ query ($id: Int!, $type: MediaType!) {
         });
 
         let res = self
-            .client
-            .post(ANILIST_ENDPOINT)
-            .json(&body)
-            .send()
+            .post_with_retry(|| self.client.post(ANILIST_ENDPOINT).json(&body))
             .await
             .context("AniList relations request failed")?;
 
@@ -229,12 +269,21 @@ query ($id: Int!, $type: MediaType!) {
             return Err(anyhow!("AniList relations GraphQL error: {}", msg));
         }
 
-        Ok(parsed
-            .data
-            .and_then(|d| d.media)
-            .and_then(|m| m.relations)
-            .and_then(|r| r.edges)
-            .unwrap_or_default())
+        let payload = RelationsPayload {
+            start_date: parsed
+                .data
+                .as_ref()
+                .and_then(|d| d.media.as_ref())
+                .and_then(|m| m.start_date.clone()),
+            edges: parsed
+                .data
+                .and_then(|d| d.media)
+                .and_then(|m| m.relations)
+                .and_then(|r| r.edges)
+                .unwrap_or_default(),
+        };
+        self.put_cached_relations(id, payload.clone()).await;
+        Ok(payload)
     }
 
     pub(crate) async fn fetch_media(&self, media_type: AniListMediaType, id: i32) -> Result<Media> {
@@ -288,10 +337,7 @@ query ($id: Int!, $type: MediaType!) {
         });
 
         let res = self
-            .client
-            .post(ANILIST_ENDPOINT)
-            .json(&body)
-            .send()
+            .post_with_retry(|| self.client.post(ANILIST_ENDPOINT).json(&body))
             .await
             .context("AniList request failed")?;
 
@@ -324,6 +370,162 @@ query ($id: Int!, $type: MediaType!) {
             .and_then(|d| d.media)
             .ok_or_else(|| anyhow!("AniList returned no media for id {}", id))
     }
+
+    pub(crate) async fn fetch_titles(
+        &self,
+        media_type: AniListMediaType,
+        id: i32,
+    ) -> Result<MediaTitle> {
+        if let Some(cached) = self.get_cached_title(id).await {
+            return Ok(cached);
+        }
+
+        #[derive(Deserialize)]
+        struct GraphQlResponse<T> {
+            data: Option<T>,
+            errors: Option<Vec<GraphQlError>>,
+        }
+
+        #[derive(Deserialize)]
+        struct GraphQlError {
+            message: String,
+            status: Option<i32>,
+        }
+
+        #[derive(Deserialize)]
+        struct Data {
+            #[serde(rename = "Media")]
+            media: Option<MediaTitleHolder>,
+        }
+
+        #[derive(Deserialize)]
+        struct MediaTitleHolder {
+            title: Option<MediaTitle>,
+        }
+
+        let query = r#"
+query ($id: Int!, $type: MediaType!) {
+  Media(id: $id, type: $type) { title { romaji english } }
+}
+"#;
+
+        let body = json!({
+            "query": query,
+            "variables": { "id": id, "type": media_type.as_graphql() }
+        });
+
+        let res = self
+            .post_with_retry(|| self.client.post(ANILIST_ENDPOINT).json(&body))
+            .await
+            .context("AniList titles request failed")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read AniList titles body")?;
+        if !status.is_success() {
+            return Err(anyhow!(
+                "AniList titles HTTP error (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        let parsed: GraphQlResponse<Data> =
+            serde_json::from_slice(&bytes).context("Failed to parse AniList titles JSON")?;
+        if let Some(errors) = parsed.errors {
+            let msg = errors
+                .into_iter()
+                .map(|e| match e.status {
+                    Some(s) => format!("{} (status {})", e.message, s),
+                    None => e.message,
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(anyhow!("AniList titles GraphQL error: {}", msg));
+        }
+
+        let title = parsed
+            .data
+            .and_then(|d| d.media)
+            .and_then(|m| m.title)
+            .unwrap_or_default();
+
+        self.put_cached_title(id, title.clone()).await;
+        Ok(title)
+    }
+
+    async fn post_with_retry(
+        &self,
+        mut make_req: impl FnMut() -> reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response> {
+        let mut attempt = 0usize;
+        loop {
+            attempt += 1;
+            let res = make_req().send().await;
+            match res {
+                Ok(resp) => {
+                    if (resp.status().as_u16() == 429 || resp.status().is_server_error())
+                        && attempt < MAX_RETRIES
+                    {
+                        let delay = retry_delay(attempt, resp.headers().get("retry-after"));
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    return Ok(resp);
+                }
+                Err(e) => {
+                    if attempt < MAX_RETRIES && (e.is_timeout() || e.is_connect() || e.is_request())
+                    {
+                        tokio::time::sleep(retry_delay(attempt, None)).await;
+                        continue;
+                    }
+                    return Err(e).context("HTTP request failed");
+                }
+            }
+        }
+    }
+
+    async fn get_cached_relations(&self, id: i32) -> Option<RelationsPayload> {
+        let mut guard = self.relations_cache.lock().await;
+        guard.retain(|_, v| v.inserted_at.elapsed().as_secs() < RELATIONS_CACHE_TTL_SECS);
+        guard.get(&id).map(|e| e.value.clone())
+    }
+
+    async fn put_cached_relations(&self, id: i32, payload: RelationsPayload) {
+        let mut guard = self.relations_cache.lock().await;
+        if guard.len() > MAX_CACHE_ENTRIES {
+            guard.clear();
+        }
+        guard.insert(
+            id,
+            CacheEntry {
+                inserted_at: Instant::now(),
+                value: payload,
+            },
+        );
+    }
+
+    async fn get_cached_title(&self, id: i32) -> Option<MediaTitle> {
+        let mut guard = self.title_cache.lock().await;
+        guard.retain(|_, v| v.inserted_at.elapsed().as_secs() < TITLE_CACHE_TTL_SECS);
+        guard.get(&id).map(|e| e.value.clone())
+    }
+
+    async fn put_cached_title(&self, id: i32, title: MediaTitle) {
+        let mut guard = self.title_cache.lock().await;
+        if guard.len() > MAX_CACHE_ENTRIES {
+            guard.clear();
+        }
+        guard.insert(
+            id,
+            CacheEntry {
+                inserted_at: Instant::now(),
+                value: title,
+            },
+        );
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -355,6 +557,8 @@ pub(crate) struct Media {
 
 #[derive(Debug, Deserialize)]
 struct MediaRelations {
+    #[serde(rename = "startDate")]
+    start_date: Option<FuzzyDate>,
     relations: Option<RelationsConnection>,
 }
 
@@ -363,25 +567,27 @@ struct RelationsConnection {
     edges: Option<Vec<RelationEdge>>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct RelationEdge {
     #[serde(rename = "relationType")]
     pub(crate) relation_type: Option<String>,
     pub(crate) node: Option<RelationNode>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct RelationNode {
     pub(crate) id: i32,
+    #[serde(rename = "startDate")]
+    pub(crate) start_date: Option<FuzzyDate>,
 }
 
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Default, Deserialize, Clone)]
 pub(crate) struct MediaTitle {
     pub(crate) romaji: Option<String>,
     pub(crate) english: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 pub(crate) struct FuzzyDate {
     pub(crate) year: Option<i32>,
     pub(crate) month: Option<i32>,
@@ -435,6 +641,55 @@ pub(crate) struct StaffNode {
 #[derive(Debug, Deserialize)]
 pub(crate) struct Name {
     pub(crate) full: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct SearchCandidate {
+    pub(crate) id: i32,
+    pub(crate) english: Option<String>,
+    pub(crate) romaji: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct RelationsPayload {
+    pub(crate) start_date: Option<FuzzyDate>,
+    pub(crate) edges: Vec<RelationEdge>,
+}
+
+fn retry_delay(attempt: usize, retry_after: Option<&reqwest::header::HeaderValue>) -> Duration {
+    if let Some(v) = retry_after.and_then(|h| h.to_str().ok()) {
+        if let Ok(secs) = v.parse::<u64>() {
+            return Duration::from_secs(secs.min(30));
+        }
+    }
+    let base_ms = 200u64.saturating_mul(2u64.saturating_pow((attempt - 1) as u32));
+    let jitter_ms = jitter_ms();
+    Duration::from_millis((base_ms + jitter_ms).min(5_000))
+}
+
+fn jitter_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.subsec_millis() as u64) % 100
+}
+
+fn normalize_title_key(input: &str) -> String {
+    let mut out = String::with_capacity(input.len());
+    let mut last_space = false;
+    for ch in input.chars() {
+        let ch = ch.to_ascii_lowercase();
+        let is_alnum = ch.is_ascii_alphanumeric();
+        if is_alnum {
+            out.push(ch);
+            last_space = false;
+        } else if !last_space {
+            out.push(' ');
+            last_space = true;
+        }
+    }
+    out.split_whitespace().collect::<Vec<_>>().join(" ")
 }
 
 #[cfg(test)]

@@ -12,6 +12,7 @@ use tracing::{info, warn};
 use crate::notion_fallback::fallback_schema;
 
 pub const NOTION_VERSION: &str = "2025-09-03";
+const MAX_RETRIES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct NotionClient {
@@ -126,6 +127,35 @@ impl NotionClient {
         })
     }
 
+    async fn send_with_retry(
+        &self,
+        mut make_req: impl FnMut() -> reqwest::RequestBuilder,
+    ) -> Result<reqwest::Response> {
+        for attempt in 1..=MAX_RETRIES {
+            let res = make_req().send().await;
+            match res {
+                Ok(resp) => {
+                    let status = resp.status();
+                    if (status.as_u16() == 429 || status.is_server_error()) && attempt < MAX_RETRIES
+                    {
+                        let delay = retry_delay(attempt, resp.headers().get("retry-after"));
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    return Ok(resp);
+                }
+                Err(e) => {
+                    if attempt < MAX_RETRIES && (e.is_timeout() || e.is_connect()) {
+                        tokio::time::sleep(retry_delay(attempt, None)).await;
+                        continue;
+                    }
+                    return Err(e).context("Notion request failed");
+                }
+            }
+        }
+        unreachable!("loop returns on success/final error")
+    }
+
     async fn resolve_data_source_id(&self) -> Result<String> {
         if let Some(existing) = self.data_source_id.get() {
             return Ok(existing.clone());
@@ -133,11 +163,12 @@ impl NotionClient {
 
         let url = format!("https://api.notion.com/v1/databases/{}", self.database_id);
         let res = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Notion-Version", NOTION_VERSION)
-            .send()
+            .send_with_retry(|| {
+                self.client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .header("Notion-Version", NOTION_VERSION)
+            })
             .await
             .context("Failed to fetch Notion database to resolve data source id")?;
 
@@ -181,12 +212,13 @@ impl NotionClient {
         }
 
         let res = self
-            .client
-            .post(url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Notion-Version", NOTION_VERSION)
-            .json(&body)
-            .send()
+            .send_with_retry(|| {
+                self.client
+                    .post(url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .header("Notion-Version", NOTION_VERSION)
+                    .json(&body)
+            })
             .await
             .context("Failed to query Notion database")?;
 
@@ -248,11 +280,12 @@ impl NotionApi for NotionClient {
     async fn fetch_property_schema(&self) -> Result<PropertySchema> {
         let url = format!("https://api.notion.com/v1/databases/{}", self.database_id);
         let res = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Notion-Version", NOTION_VERSION)
-            .send()
+            .send_with_retry(|| {
+                self.client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .header("Notion-Version", NOTION_VERSION)
+            })
             .await
             .context("Failed to fetch Notion database")?;
 
@@ -291,11 +324,12 @@ impl NotionApi for NotionClient {
     async fn fetch_page(&self, page_id: &str) -> Result<Value> {
         let url = format!("https://api.notion.com/v1/pages/{}", page_id);
         let res = self
-            .client
-            .get(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Notion-Version", NOTION_VERSION)
-            .send()
+            .send_with_retry(|| {
+                self.client
+                    .get(&url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .header("Notion-Version", NOTION_VERSION)
+            })
             .await
             .context("Failed to fetch Notion page")?;
 
@@ -332,12 +366,13 @@ impl NotionApi for NotionClient {
         }
 
         let res = self
-            .client
-            .patch(&url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
-            .header("Notion-Version", NOTION_VERSION)
-            .json(&body)
-            .send()
+            .send_with_retry(|| {
+                self.client
+                    .patch(&url)
+                    .header("Authorization", format!("Bearer {}", self.api_key))
+                    .header("Notion-Version", NOTION_VERSION)
+                    .json(&body)
+            })
             .await
             .context("Failed to update Notion page")?;
 
@@ -574,4 +609,23 @@ fn string_value_opt(val: ValueInput) -> Option<String> {
         ValueInput::Url(s) => Some(s),
         ValueInput::Date(s) => Some(s),
     }
+}
+
+fn retry_delay(attempt: usize, retry_after: Option<&reqwest::header::HeaderValue>) -> Duration {
+    if let Some(v) = retry_after.and_then(|h| h.to_str().ok()) {
+        if let Ok(secs) = v.parse::<u64>() {
+            return Duration::from_secs(secs.min(30));
+        }
+    }
+    let base_ms = 200u64.saturating_mul(2u64.saturating_pow((attempt - 1) as u32));
+    let jitter_ms = jitter_ms();
+    Duration::from_millis((base_ms + jitter_ms).min(5_000))
+}
+
+fn jitter_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.subsec_millis() as u64) % 100
 }

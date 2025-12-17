@@ -9,6 +9,7 @@ use tokio::sync::OnceCell;
 
 const TMDB_BASE: &str = "https://api.themoviedb.org/3";
 const POSTER_BASE: &str = "https://image.tmdb.org/t/p/original";
+const MAX_RETRIES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct TmdbClient {
@@ -505,23 +506,38 @@ impl TmdbClient {
     }
 
     async fn get_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T> {
-        let res = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .context("request failed")?;
-        let status = res.status();
-        let bytes = res.bytes().await.context("reading body failed")?;
-        if !status.is_success() {
-            return Err(anyhow!(
-                "TMDB request failed (status {}) for {}: {}",
-                status,
-                url,
-                String::from_utf8_lossy(&bytes)
-            ));
+        for attempt in 1..=MAX_RETRIES {
+            let res = self.client.get(url).send().await;
+            match res {
+                Ok(res) => {
+                    let status = res.status();
+                    if (status.as_u16() == 429 || status.is_server_error()) && attempt < MAX_RETRIES
+                    {
+                        let delay = retry_delay(attempt, res.headers().get("retry-after"));
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    let bytes = res.bytes().await.context("reading body failed")?;
+                    if !status.is_success() {
+                        return Err(anyhow!(
+                            "TMDB request failed (status {}) for {}: {}",
+                            status,
+                            url,
+                            String::from_utf8_lossy(&bytes)
+                        ));
+                    }
+                    return serde_json::from_slice(&bytes).context("JSON parse failed");
+                }
+                Err(e) => {
+                    if attempt < MAX_RETRIES && (e.is_timeout() || e.is_connect()) {
+                        tokio::time::sleep(retry_delay(attempt, None)).await;
+                        continue;
+                    }
+                    return Err(e).context("request failed");
+                }
+            }
         }
-        serde_json::from_slice(&bytes).context("JSON parse failed")
+        unreachable!("loop returns on success/final error")
     }
 
     async fn find_imdb(&self, imdb_id: &str, media: &str) -> Result<Option<i32>> {
@@ -568,6 +584,25 @@ impl TmdbClient {
         let tv_id = data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id);
         Ok((movie_id, tv_id))
     }
+}
+
+fn retry_delay(attempt: usize, retry_after: Option<&reqwest::header::HeaderValue>) -> Duration {
+    if let Some(v) = retry_after.and_then(|h| h.to_str().ok()) {
+        if let Ok(secs) = v.parse::<u64>() {
+            return Duration::from_secs(secs.min(30));
+        }
+    }
+    let base_ms = 200u64.saturating_mul(2u64.saturating_pow((attempt - 1) as u32));
+    let jitter_ms = jitter_ms();
+    Duration::from_millis((base_ms + jitter_ms).min(5_000))
+}
+
+fn jitter_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.subsec_millis() as u64) % 100
 }
 
 #[derive(Debug, Deserialize)]

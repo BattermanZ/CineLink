@@ -5,6 +5,7 @@ use crate::tmdb::{self, TmdbApi, TmdbClient};
 use anyhow::Result;
 use axum::{
     body::Bytes,
+    extract::DefaultBodyLimit,
     extract::State,
     http::{header, HeaderMap, StatusCode},
     routing::{get, post},
@@ -109,6 +110,7 @@ pub fn build_router(state: AppState) -> Router {
     Router::new()
         .route("/", post(handle_webhook))
         .route("/health", get(health))
+        .layer(DefaultBodyLimit::max(MAX_BODY_BYTES))
         .with_state(state)
 }
 
@@ -151,8 +153,9 @@ async fn handle_webhook(
     }
 
     if !verify_notion_signature(&headers, &body, &state.signing_secret) {
+        // Return 200 to avoid retry amplification; we simply ignore untrusted payloads.
         warn!("Webhook signature verification failed");
-        return StatusCode::UNAUTHORIZED;
+        return StatusCode::OK;
     }
 
     let payload: serde_json::Value = match serde_json::from_slice(&body) {

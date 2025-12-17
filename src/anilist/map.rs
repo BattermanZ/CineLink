@@ -31,6 +31,7 @@ impl AniListClient {
             .into_iter()
             .filter_map(|e| e.node.and_then(|n| n.name).and_then(|n| n.full))
             .collect::<Vec<_>>();
+        let cast = dedupe_preserve_order(cast);
 
         let country_code = media.country_of_origin.clone();
         let country_of_origin = country_code
@@ -316,6 +317,20 @@ mod tests {
         assert_eq!(
             dedupe_preserve_order(input),
             vec!["A".to_string(), "B".to_string()]
+        );
+    }
+
+    #[test]
+    fn dedupes_cast_like_director() {
+        let input = vec![
+            "Actor".to_string(),
+            "Actor".to_string(),
+            "Other".to_string(),
+            "Actor".to_string(),
+        ];
+        assert_eq!(
+            dedupe_preserve_order(input),
+            vec!["Actor".to_string(), "Other".to_string()]
         );
     }
 }
