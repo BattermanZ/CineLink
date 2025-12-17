@@ -183,6 +183,7 @@ fn tmdb_movie() -> MediaData {
         id: 101,
         name: "TMDB Movie".to_string(),
         eng_name: Some("TMDB Movie".to_string()),
+        original_title: Some("TMDB Movie".to_string()),
         synopsis: Some("Movie overview".to_string()),
         genres: vec!["Drama".to_string()],
         cast: vec!["Actor A".to_string()],
@@ -207,6 +208,7 @@ fn tmdb_tv() -> MediaData {
         id: 202,
         name: "TMDB Show".to_string(),
         eng_name: Some("TMDB Show".to_string()),
+        original_title: Some("TMDB Show".to_string()),
         synopsis: Some("Show overview".to_string()),
         genres: vec!["Sci-Fi".to_string()],
         cast: vec!["Actor B".to_string()],
@@ -627,6 +629,7 @@ async fn uses_original_title_for_french_with_eng_name_set() {
         id: 303,
         name: "Titre anglais".to_string(), // localized title
         eng_name: None,                    // will be ignored; we set below
+        original_title: Some("Titre original".to_string()),
         synopsis: None,
         genres: vec![],
         cast: vec![],
@@ -687,4 +690,59 @@ async fn uses_original_title_for_french_with_eng_name_set() {
         .and_then(|t| t.get("content"))
         .and_then(|s| s.as_str());
     assert_eq!(eng_name, Some("English Title"));
+
+    assert!(props.get("Original Title").is_none());
+}
+
+#[tokio::test]
+async fn sets_original_title_when_using_english_title() {
+    let jp_media = MediaData {
+        id: 404,
+        name: "Spirited Away".to_string(),
+        eng_name: None,
+        original_title: Some("千と千尋の神隠し".to_string()),
+        synopsis: None,
+        genres: vec![],
+        cast: vec![],
+        director: vec![],
+        content_rating: None,
+        country_of_origin: vec![],
+        language: Some("Japanese".to_string()),
+        original_language: "ja".to_string(),
+        release_date: None,
+        year: None,
+        runtime_minutes: None,
+        episodes: None,
+        trailer: None,
+        poster: None,
+        backdrop: None,
+        imdb_page: None,
+    };
+
+    let page = make_page("Spirited Away ;", "Movie", None);
+    let (app, notion) = app_with_mocks(
+        page.clone(),
+        FakeTmdb {
+            movie: jp_media.clone(),
+            tv: tmdb_tv(),
+        },
+    );
+
+    let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    wait_for_update_count(&notion, 1).await;
+    let updates = notion.updates.lock().unwrap();
+    let (_id, props, _, _) = &updates[0];
+
+    let original = props
+        .get("Original Title")
+        .and_then(|p| p.get("rich_text"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(original, Some("千と千尋の神隠し"));
 }

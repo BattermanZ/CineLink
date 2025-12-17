@@ -34,6 +34,7 @@ pub struct MediaData {
     pub id: i32,
     pub name: String,
     pub eng_name: Option<String>,
+    pub original_title: Option<String>,
     pub synopsis: Option<String>,
     pub genres: Vec<String>,
     pub cast: Vec<String>,
@@ -274,6 +275,7 @@ impl TmdbApi for TmdbClient {
             id: detail.id,
             name,
             eng_name,
+            original_title: Some(detail.original_title.clone()),
             synopsis: Some(detail.overview),
             genres,
             cast,
@@ -391,6 +393,7 @@ impl TmdbApi for TmdbClient {
             id: show_detail.id,
             name,
             eng_name,
+            original_title: Some(show_detail.original_name.clone()),
             synopsis: Some(if season_detail.overview.is_empty() {
                 show_detail.overview.clone()
             } else {

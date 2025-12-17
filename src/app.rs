@@ -457,6 +457,18 @@ async fn process_page_inner(
             &schema,
         );
     }
+    if tmdb_media.eng_name.is_none() {
+        if let Some(orig) = tmdb_media.original_title.clone() {
+            if orig.trim() != tmdb_media.name.trim() {
+                notion::set_value(
+                    &mut updates,
+                    "Original Title",
+                    Some(notion::ValueInput::Text(orig)),
+                    &schema,
+                );
+            }
+        }
+    }
     notion::set_value(
         &mut updates,
         "Synopsis",
