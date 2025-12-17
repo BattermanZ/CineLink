@@ -6,6 +6,7 @@ pub fn fallback_schema() -> PropertySchema {
     let mut types = HashMap::new();
     types.insert("Name".to_string(), PropertyType::Title);
     types.insert("Eng Name".to_string(), PropertyType::RichText);
+    types.insert("Original Title".to_string(), PropertyType::RichText);
     types.insert("Synopsis".to_string(), PropertyType::RichText);
     types.insert("Genre".to_string(), PropertyType::MultiSelect);
     types.insert("Cast".to_string(), PropertyType::RichText);

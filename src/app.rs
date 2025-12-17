@@ -1,3 +1,4 @@
+use crate::anilist::{AniListApi, AniListClient};
 use crate::notion::{self, NotionApi, NotionClient};
 use crate::notion_fallback::fallback_schema;
 use crate::tmdb::{self, TmdbApi, TmdbClient};
@@ -34,6 +35,7 @@ const MAX_DEDUPE_ENTRIES: usize = 10_000;
 pub struct AppState {
     pub notion: Arc<dyn NotionApi>,
     pub tmdb: Arc<dyn TmdbApi>,
+    pub anilist: Arc<dyn AniListApi>,
     pub title_property: String,
     pub schema: Arc<notion::PropertySchema>,
     pub signing_secret: String,
@@ -65,6 +67,7 @@ pub async fn run_server() -> Result<()> {
     info!("Using title property: {}", title_property);
 
     let tmdb: Arc<dyn TmdbApi> = Arc::new(TmdbClient::from_env()?);
+    let anilist: Arc<dyn AniListApi> = Arc::new(AniListClient::new()?);
     let signing_secret = env::var("NOTION_WEBHOOK_SECRET")
         .ok()
         .filter(|s| !s.is_empty())
@@ -82,6 +85,7 @@ pub async fn run_server() -> Result<()> {
     let state = AppState {
         notion,
         tmdb,
+        anilist,
         title_property,
         schema,
         signing_secret,
@@ -268,18 +272,27 @@ async fn process_page_inner(
 
     let raw_title = notion::extract_title(props, &state.title_property).unwrap_or_default();
 
-    let clean_title = if require_semicolon {
-        if !raw_title.ends_with(';') {
+    enum TriggerKind {
+        Tmdb,
+        AniList,
+    }
+
+    let (trigger_kind, clean_title) = if require_semicolon {
+        let (kind, trimmed) = if raw_title.ends_with(';') {
+            (TriggerKind::Tmdb, raw_title.trim_end_matches(';'))
+        } else if raw_title.ends_with('=') {
+            (TriggerKind::AniList, raw_title.trim_end_matches('='))
+        } else {
             return Ok(false);
-        }
+        };
         info!("Received trigger for page '{}'", raw_title);
-        raw_title.trim_end_matches(';').trim().to_string()
+        (kind, trimmed.trim().to_string())
     } else {
         if raw_title.trim().is_empty() || raw_title.ends_with(';') {
             return Ok(false);
         }
         info!("Backfill updating page '{}'", raw_title);
-        raw_title.trim().to_string()
+        (TriggerKind::Tmdb, raw_title.trim().to_string())
     };
 
     let type_value = notion::extract_select(props, "Type");
@@ -291,6 +304,19 @@ async fn process_page_inner(
     let season_str = notion::extract_select(props, "Season")
         .or_else(|| notion::extract_rich_text(props, "Season"));
     let season_number_parsed = season_str.as_deref().and_then(tmdb::parse_season_number);
+
+    if matches!(trigger_kind, TriggerKind::AniList) {
+        return process_anilist_page(
+            state,
+            page_id,
+            event_id,
+            raw_title,
+            &clean_title,
+            season_number_parsed,
+            &schema,
+        )
+        .await;
+    }
 
     let imdb_hint = tmdb::parse_imdb_id(&clean_title);
     let mut resolved_id: Option<i32> = None;
@@ -548,6 +574,201 @@ async fn process_page_inner(
     info!(
         "Finished update for page '{}' -> '{}'",
         raw_title, tmdb_media.name
+    );
+    Ok(true)
+}
+
+async fn process_anilist_page(
+    state: &AppState,
+    page_id: &str,
+    event_id: Option<&str>,
+    raw_title: String,
+    query: &str,
+    season: Option<i32>,
+    schema: &notion::PropertySchema,
+) -> Result<bool> {
+    let anime_id = match state.anilist.resolve_anime_id(query, season).await {
+        Ok(id) => id,
+        Err(e) => {
+            warn!("No AniList match for Anime '{}': {}", query, e);
+            set_error_title(
+                &state.notion,
+                page_id,
+                &state.title_property,
+                schema,
+                raw_title,
+                "No AniList match",
+            )
+            .await?;
+            return Ok(false);
+        }
+    };
+
+    info!(
+        page_id = %page_id,
+        event_id = ?event_id,
+        "Fetching AniList data for Anime '{}' (anilist id {})",
+        query,
+        anime_id
+    );
+    let anime = match state.anilist.fetch_anime(anime_id).await {
+        Ok(data) => data,
+        Err(e) => {
+            warn!("Failed to fetch AniList anime for '{}': {}", query, e);
+            set_error_title(
+                &state.notion,
+                page_id,
+                &state.title_property,
+                schema,
+                raw_title,
+                "No AniList match",
+            )
+            .await?;
+            return Ok(false);
+        }
+    };
+
+    let mut updates = serde_json::Map::new();
+    notion::set_title(&mut updates, &state.title_property, &anime.name, schema);
+
+    // Explicitly blank Eng Name (anime title is already the "actual" title).
+    notion::set_value(
+        &mut updates,
+        "Eng Name",
+        Some(notion::ValueInput::Text(String::new())),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Original Title",
+        anime.original_title.map(notion::ValueInput::Text),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Synopsis",
+        anime.synopsis.map(notion::ValueInput::Text),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Genre",
+        Some(notion::ValueInput::StringList(anime.genres)),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Cast",
+        Some(notion::ValueInput::StringList(anime.cast)),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Director",
+        Some(notion::ValueInput::StringList(anime.director)),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Content Rating",
+        Some(notion::ValueInput::Text(anime.content_rating)),
+        schema,
+    );
+    if let Some(country) = anime.country_of_origin {
+        notion::set_value(
+            &mut updates,
+            "Country of origin",
+            Some(notion::ValueInput::StringList(vec![country])),
+            schema,
+        );
+    }
+    notion::set_value(
+        &mut updates,
+        "Language",
+        anime.language.map(notion::ValueInput::Text),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Release Date",
+        anime.release_date.map(notion::ValueInput::Date),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Year",
+        anime.year.map(notion::ValueInput::Text),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "Runtime",
+        anime
+            .runtime_minutes
+            .map(|r| notion::ValueInput::Number(r as f64)),
+        schema,
+    );
+    if let Some(episodes) = anime.episodes {
+        notion::set_value(
+            &mut updates,
+            "Episodes",
+            Some(notion::ValueInput::Number(episodes as f64)),
+            schema,
+        );
+    }
+    notion::set_value(
+        &mut updates,
+        "Trailer",
+        anime.trailer.map(notion::ValueInput::Url),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "IMG",
+        anime.poster.clone().map(notion::ValueInput::Url),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "IMDb Page",
+        anime.imdb_page.map(notion::ValueInput::Url),
+        schema,
+    );
+    notion::set_value(
+        &mut updates,
+        "ID",
+        Some(notion::ValueInput::Number(anime.id as f64)),
+        schema,
+    );
+
+    let icon = anime.poster.as_ref().map(|url| {
+        json!({
+            "type": "external",
+            "external": { "url": url }
+        })
+    });
+    let cover = anime.backdrop.as_ref().map(|url| {
+        json!({
+            "type": "external",
+            "external": { "url": url }
+        })
+    });
+
+    info!(
+        page_id = %page_id,
+        event_id = ?event_id,
+        "Updating Notion page from AniList"
+    );
+    state
+        .notion
+        .update_page(page_id, updates, icon, cover)
+        .await?;
+    info!(
+        page_id = %page_id,
+        event_id = ?event_id,
+        "Finished AniList update '{}' -> '{}'",
+        raw_title,
+        anime.name
     );
     Ok(true)
 }

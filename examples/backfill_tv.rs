@@ -1,4 +1,5 @@
 use anyhow::Result;
+use cinelink::anilist::{AniListApi, AniListClient};
 use cinelink::app::{process_page_backfill_tv, AppState, WindowCounter};
 use cinelink::notion::{self, DatabaseQueryResponse, NotionApi, NotionClient};
 use cinelink::notion_fallback::fallback_schema;
@@ -57,10 +58,12 @@ async fn main() -> Result<()> {
         .clone()
         .unwrap_or_else(|| "Name".to_string());
     let tmdb: Arc<dyn TmdbApi> = Arc::new(TmdbClient::from_env()?);
+    let anilist: Arc<dyn AniListApi> = Arc::new(AniListClient::new()?);
 
     let state = AppState {
         notion,
         tmdb,
+        anilist,
         title_property,
         schema,
         signing_secret: String::new(),

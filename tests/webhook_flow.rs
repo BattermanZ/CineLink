@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use chrono::Utc;
+use cinelink::anilist::{AniListApi, AniListMapped};
 use cinelink::app::{build_router, AppState};
 use cinelink::notion::{NotionApi, PropertySchema, PropertyType, NOTION_VERSION};
 use cinelink::tmdb::{MediaData, TmdbApi};
@@ -93,10 +94,29 @@ impl TmdbApi for FakeTmdb {
     }
 }
 
+struct FakeAniList {
+    resolved_id: i32,
+    anime: AniListMapped,
+}
+
+#[async_trait::async_trait]
+impl AniListApi for FakeAniList {
+    async fn resolve_anime_id(&self, _query: &str, season: Option<i32>) -> anyhow::Result<i32> {
+        assert_eq!(season, Some(2));
+        Ok(self.resolved_id)
+    }
+
+    async fn fetch_anime(&self, id: i32) -> anyhow::Result<AniListMapped> {
+        assert_eq!(id, self.resolved_id);
+        Ok(self.anime.clone())
+    }
+}
+
 fn base_schema() -> PropertySchema {
     let mut types = HashMap::new();
     types.insert("Name".to_string(), PropertyType::Title);
     types.insert("Eng Name".to_string(), PropertyType::RichText);
+    types.insert("Original Title".to_string(), PropertyType::RichText);
     types.insert("Synopsis".to_string(), PropertyType::RichText);
     types.insert("Genre".to_string(), PropertyType::MultiSelect);
     types.insert("Cast".to_string(), PropertyType::RichText);
@@ -220,6 +240,32 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
     let state = AppState {
         notion: notion.clone(),
         tmdb: Arc::new(tmdb),
+        anilist: Arc::new(FakeAniList {
+            resolved_id: 176496,
+            anime: AniListMapped {
+                id: 176496,
+                id_mal: None,
+                name: "AniList English".to_string(),
+                eng_name: None,
+                original_title: Some("AniList Romaji".to_string()),
+                synopsis: Some("AniList synopsis".to_string()),
+                genres: vec!["Action".to_string()],
+                cast: vec!["Cast A".to_string()],
+                director: vec!["Director A".to_string()],
+                is_adult: false,
+                content_rating: "All Audiences".to_string(),
+                country_of_origin: Some("Japan".to_string()),
+                language: Some("Japanese".to_string()),
+                release_date: Some("2025-01-05".to_string()),
+                year: Some("2025".to_string()),
+                runtime_minutes: Some(24.0),
+                episodes: Some(13),
+                trailer: Some("https://youtube.com/anime".to_string()),
+                poster: Some("https://anilist/poster.png".to_string()),
+                backdrop: Some("https://anilist/backdrop.jpg".to_string()),
+                imdb_page: Some("https://anilist.co/anime/176496".to_string()),
+            },
+        }),
         title_property: "Name".to_string(),
         schema: Arc::new(schema),
         signing_secret: WEBHOOK_SECRET.to_string(),
@@ -489,6 +535,76 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
         .and_then(|t| t.get("content"))
         .and_then(|s| s.as_str());
     assert_eq!(name, Some(tv.name.as_str()));
+}
+
+#[tokio::test]
+async fn updates_anime_when_title_has_equals() {
+    let page = make_page("Ani Query=", "tv", Some("Season 2"));
+    let tmdb = FakeTmdb {
+        movie: tmdb_movie(),
+        tv: tmdb_tv(),
+    };
+    let (app, notion) = app_with_mocks(page, tmdb);
+
+    let page_id = "page-1";
+    let body = webhook_payload(&["title"], page_id);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "application/json")
+        .header("Notion-Version", NOTION_VERSION)
+        .header("x-notion-signature", sign_body(&body))
+        .body(Body::from(body))
+        .unwrap();
+
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    wait_for_update_count(&notion, 1).await;
+    let updates = notion.updates.lock().unwrap();
+    let (_, props, _icon, _cover) = updates.last().unwrap();
+
+    let name = props
+        .get("Name")
+        .and_then(|v| v.get("title"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(name, Some("AniList English"));
+
+    let original = props
+        .get("Original Title")
+        .and_then(|v| v.get("rich_text"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(original, Some("AniList Romaji"));
+
+    let eng_name = props
+        .get("Eng Name")
+        .and_then(|v| v.get("rich_text"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(eng_name, Some(""));
+
+    let id = props
+        .get("ID")
+        .and_then(|v| v.get("number"))
+        .and_then(|v| v.as_f64());
+    assert_eq!(id, Some(176496.0));
+
+    let imdb_page = props
+        .get("IMDb Page")
+        .and_then(|v| v.get("url"))
+        .and_then(|v| v.as_str());
+    assert_eq!(imdb_page, Some("https://anilist.co/anime/176496"));
 }
 
 #[tokio::test]

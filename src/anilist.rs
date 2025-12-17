@@ -1,7 +1,9 @@
 use anyhow::{anyhow, Context, Result};
+use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
 use serde_json::json;
+use std::collections::HashSet;
 use std::time::Duration;
 
 const ANILIST_ENDPOINT: &str = "https://graphql.anilist.co";
@@ -24,6 +26,12 @@ impl AniListMediaType {
             AniListMediaType::Manga => "MANGA",
         }
     }
+}
+
+#[async_trait]
+pub trait AniListApi: Send + Sync {
+    async fn resolve_anime_id(&self, query: &str, season: Option<i32>) -> Result<i32>;
+    async fn fetch_anime(&self, id: i32) -> Result<AniListMapped>;
 }
 
 #[derive(Debug, Clone)]
@@ -70,6 +78,273 @@ impl AniListClient {
     ) -> Result<AniListMapped> {
         let media = self.fetch_media(media_type, id).await?;
         self.map_media(media_type, media).await
+    }
+
+    pub async fn resolve_id(&self, media_type: AniListMediaType, query: &str) -> Result<i32> {
+        if let Some(id) = parse_anilist_id(query) {
+            return Ok(id);
+        }
+        self.search_id(media_type, query).await
+    }
+
+    pub async fn resolve_id_with_season(
+        &self,
+        media_type: AniListMediaType,
+        query: &str,
+        season: Option<i32>,
+    ) -> Result<i32> {
+        if let Some(id) = parse_anilist_id(query) {
+            return Ok(id);
+        }
+        let candidate = self.search_id(media_type, query).await?;
+        let season = season.unwrap_or(1).max(1);
+        self.resolve_season_entry(media_type, candidate, season)
+            .await
+    }
+
+    async fn search_id(&self, media_type: AniListMediaType, query: &str) -> Result<i32> {
+        #[derive(Deserialize)]
+        struct GraphQlResponse<T> {
+            data: Option<T>,
+            errors: Option<Vec<GraphQlError>>,
+        }
+
+        #[derive(Deserialize)]
+        struct GraphQlError {
+            message: String,
+            status: Option<i32>,
+        }
+
+        #[derive(Deserialize)]
+        struct Data {
+            #[serde(rename = "Page")]
+            page: Option<SearchPage>,
+        }
+
+        #[derive(Deserialize)]
+        struct SearchPage {
+            media: Option<Vec<SearchMedia>>,
+        }
+
+        #[derive(Deserialize)]
+        struct SearchMedia {
+            id: i32,
+            title: Option<MediaTitle>,
+        }
+
+        let query_gql = r#"
+query ($search: String!, $type: MediaType!) {
+  Page(perPage: 5) {
+    media(search: $search, type: $type) {
+      id
+      title { romaji english }
+    }
+  }
+}
+"#;
+
+        let body = json!({
+            "query": query_gql,
+            "variables": { "search": query, "type": media_type.as_graphql() }
+        });
+
+        let res = self
+            .client
+            .post(ANILIST_ENDPOINT)
+            .json(&body)
+            .send()
+            .await
+            .context("AniList search request failed")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read AniList search body")?;
+        if !status.is_success() {
+            return Err(anyhow!(
+                "AniList search HTTP error (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        let parsed: GraphQlResponse<Data> =
+            serde_json::from_slice(&bytes).context("Failed to parse AniList search JSON")?;
+        if let Some(errors) = parsed.errors {
+            let msg = errors
+                .into_iter()
+                .map(|e| match e.status {
+                    Some(s) => format!("{} (status {})", e.message, s),
+                    None => e.message,
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(anyhow!("AniList search GraphQL error: {}", msg));
+        }
+
+        let hits = parsed
+            .data
+            .and_then(|d| d.page)
+            .and_then(|p| p.media)
+            .unwrap_or_default();
+
+        let normalized = query.trim().to_ascii_lowercase();
+        let best = hits.iter().find(|m| {
+            m.title.as_ref().is_some_and(|t| {
+                t.english
+                    .as_deref()
+                    .is_some_and(|s| s.trim().to_ascii_lowercase() == normalized)
+                    || t.romaji
+                        .as_deref()
+                        .is_some_and(|s| s.trim().to_ascii_lowercase() == normalized)
+            })
+        });
+
+        best.or_else(|| hits.first())
+            .map(|m| m.id)
+            .ok_or_else(|| anyhow!("No AniList match found for '{}'", query))
+    }
+
+    async fn resolve_season_entry(
+        &self,
+        media_type: AniListMediaType,
+        candidate_id: i32,
+        season: i32,
+    ) -> Result<i32> {
+        let base = self.find_base_entry(media_type, candidate_id).await?;
+        if season <= 1 {
+            return Ok(base);
+        }
+        self.follow_sequel_chain(media_type, base, season - 1).await
+    }
+
+    async fn find_base_entry(&self, media_type: AniListMediaType, start_id: i32) -> Result<i32> {
+        let mut current = start_id;
+        let mut seen = HashSet::new();
+        loop {
+            if !seen.insert(current) {
+                return Ok(current);
+            }
+            let relations = self.fetch_relations(media_type, current).await?;
+            let prequel = relations
+                .iter()
+                .find(|e| e.relation_type.as_deref() == Some("PREQUEL"))
+                .and_then(|e| e.node.as_ref())
+                .map(|n| n.id);
+            match prequel {
+                Some(prev) => current = prev,
+                None => return Ok(current),
+            }
+        }
+    }
+
+    async fn follow_sequel_chain(
+        &self,
+        media_type: AniListMediaType,
+        start_id: i32,
+        steps: i32,
+    ) -> Result<i32> {
+        let mut current = start_id;
+        let mut seen = HashSet::new();
+        for _ in 0..steps {
+            if !seen.insert(current) {
+                break;
+            }
+            let relations = self.fetch_relations(media_type, current).await?;
+            let sequel = relations
+                .iter()
+                .find(|e| e.relation_type.as_deref() == Some("SEQUEL"))
+                .and_then(|e| e.node.as_ref())
+                .map(|n| n.id)
+                .ok_or_else(|| anyhow!("No AniList sequel found while resolving season"))?;
+            current = sequel;
+        }
+        Ok(current)
+    }
+
+    async fn fetch_relations(
+        &self,
+        media_type: AniListMediaType,
+        id: i32,
+    ) -> Result<Vec<RelationEdge>> {
+        #[derive(Deserialize)]
+        struct GraphQlResponse<T> {
+            data: Option<T>,
+            errors: Option<Vec<GraphQlError>>,
+        }
+
+        #[derive(Deserialize)]
+        struct GraphQlError {
+            message: String,
+            status: Option<i32>,
+        }
+
+        #[derive(Deserialize)]
+        struct Data {
+            #[serde(rename = "Media")]
+            media: Option<MediaRelations>,
+        }
+
+        let query = r#"
+query ($id: Int!, $type: MediaType!) {
+  Media(id: $id, type: $type) {
+    relations {
+      edges {
+        relationType
+        node { id }
+      }
+    }
+  }
+}
+"#;
+
+        let body = json!({
+            "query": query,
+            "variables": { "id": id, "type": media_type.as_graphql() }
+        });
+
+        let res = self
+            .client
+            .post(ANILIST_ENDPOINT)
+            .json(&body)
+            .send()
+            .await
+            .context("AniList relations request failed")?;
+
+        let status = res.status();
+        let bytes = res
+            .bytes()
+            .await
+            .context("Failed to read AniList relations body")?;
+        if !status.is_success() {
+            return Err(anyhow!(
+                "AniList relations HTTP error (status {}): {}",
+                status,
+                String::from_utf8_lossy(&bytes)
+            ));
+        }
+
+        let parsed: GraphQlResponse<Data> =
+            serde_json::from_slice(&bytes).context("Failed to parse AniList relations JSON")?;
+        if let Some(errors) = parsed.errors {
+            let msg = errors
+                .into_iter()
+                .map(|e| match e.status {
+                    Some(s) => format!("{} (status {})", e.message, s),
+                    None => e.message,
+                })
+                .collect::<Vec<_>>()
+                .join("; ");
+            return Err(anyhow!("AniList relations GraphQL error: {}", msg));
+        }
+
+        Ok(parsed
+            .data
+            .and_then(|d| d.media)
+            .and_then(|m| m.relations)
+            .and_then(|r| r.edges)
+            .unwrap_or_default())
     }
 
     async fn fetch_media(&self, media_type: AniListMediaType, id: i32) -> Result<Media> {
@@ -260,6 +535,28 @@ struct Media {
     staff: Option<StaffConnection>,
 }
 
+#[derive(Debug, Deserialize)]
+struct MediaRelations {
+    relations: Option<RelationsConnection>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RelationsConnection {
+    edges: Option<Vec<RelationEdge>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RelationEdge {
+    #[serde(rename = "relationType")]
+    relation_type: Option<String>,
+    node: Option<RelationNode>,
+}
+
+#[derive(Debug, Deserialize)]
+struct RelationNode {
+    id: i32,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct MediaTitle {
     romaji: Option<String>,
@@ -358,6 +655,17 @@ fn choose_titles(title: &MediaTitle) -> (String, Option<String>, Option<String>)
     let original_title = romaji.map(|r| r.to_string());
 
     (actual, eng_name, original_title)
+}
+
+fn parse_anilist_id(query: &str) -> Option<i32> {
+    let trimmed = query.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if !trimmed.bytes().all(|b| b.is_ascii_digit()) {
+        return None;
+    }
+    trimmed.parse::<i32>().ok().filter(|id| *id > 0)
 }
 
 fn fuzzy_date_to_string(date: &FuzzyDate) -> Option<String> {
@@ -485,5 +793,26 @@ mod tests {
     fn content_rating_derived_from_is_adult() {
         assert_eq!(content_rating_from_is_adult(false), "All Audiences");
         assert_eq!(content_rating_from_is_adult(true), "Adult");
+    }
+
+    #[test]
+    fn parses_anilist_id_only_for_digits() {
+        assert_eq!(parse_anilist_id("176496"), Some(176496));
+        assert_eq!(parse_anilist_id(" 176496 "), Some(176496));
+        assert_eq!(parse_anilist_id("tt123"), None);
+        assert_eq!(parse_anilist_id("abc"), None);
+        assert_eq!(parse_anilist_id(""), None);
+    }
+}
+
+#[async_trait]
+impl AniListApi for AniListClient {
+    async fn resolve_anime_id(&self, query: &str, season: Option<i32>) -> Result<i32> {
+        self.resolve_id_with_season(AniListMediaType::Anime, query, season)
+            .await
+    }
+
+    async fn fetch_anime(&self, id: i32) -> Result<AniListMapped> {
+        self.fetch_mapped(AniListMediaType::Anime, id).await
     }
 }
