@@ -649,12 +649,61 @@ fn choose_titles(title: &MediaTitle) -> (String, Option<String>, Option<String>)
         .filter(|s| !s.is_empty());
 
     let actual = english.or(romaji).unwrap_or("Unknown Title").to_string();
+    let actual = strip_trailing_season_suffix(&actual);
 
     let eng_name = None;
 
-    let original_title = romaji.map(|r| r.to_string());
+    let original_title = romaji.map(strip_trailing_season_suffix);
 
     (actual, eng_name, original_title)
+}
+
+pub(crate) fn strip_trailing_season_suffix(title: &str) -> String {
+    let trimmed = title.trim_end();
+    let lower = trimmed.to_ascii_lowercase();
+    let Some(season_idx) = lower.rfind("season") else {
+        return trimmed.to_string();
+    };
+
+    // Must be a trailing "season <digits>" (optionally preceded by whitespace/punctuation).
+    let after = &lower[season_idx..];
+    let after = after.strip_prefix("season").unwrap_or(after);
+    let after = after.trim_start();
+    if after.is_empty() || !after.bytes().all(|b| b.is_ascii_digit()) {
+        return trimmed.to_string();
+    }
+
+    // Ensure "season" starts at a token boundary.
+    if season_idx > 0 {
+        let prev = lower.as_bytes()[season_idx - 1];
+        if prev.is_ascii_alphanumeric() {
+            return trimmed.to_string();
+        }
+    }
+
+    // Compute cut position and also remove separators like " - ", ": ", " – ".
+    let mut cut = season_idx;
+    while cut > 0 && trimmed.as_bytes()[cut - 1].is_ascii_whitespace() {
+        cut -= 1;
+    }
+    while cut > 0 {
+        let ch = trimmed.as_bytes()[cut - 1] as char;
+        if matches!(ch, '-' | ':' | '–' | '—') {
+            cut -= 1;
+            while cut > 0 && trimmed.as_bytes()[cut - 1].is_ascii_whitespace() {
+                cut -= 1;
+            }
+        } else {
+            break;
+        }
+    }
+
+    let stripped = trimmed[..cut].trim_end();
+    if stripped.is_empty() {
+        trimmed.to_string()
+    } else {
+        stripped.to_string()
+    }
 }
 
 fn parse_anilist_id(query: &str) -> Option<i32> {
@@ -749,13 +798,34 @@ mod tests {
     #[test]
     fn title_selection_prefers_english_and_uses_romaji_as_original() {
         let t = MediaTitle {
-            english: Some("English".to_string()),
-            romaji: Some("Romaji".to_string()),
+            english: Some("English Season 2".to_string()),
+            romaji: Some("Romaji Season 2".to_string()),
         };
         let (name, eng, original) = choose_titles(&t);
         assert_eq!(name, "English");
         assert_eq!(eng, None);
         assert_eq!(original.as_deref(), Some("Romaji"));
+    }
+
+    #[test]
+    fn strips_trailing_season_suffix_only_at_end() {
+        assert_eq!(
+            strip_trailing_season_suffix("One-Punch Man Season 2"),
+            "One-Punch Man"
+        );
+        assert_eq!(
+            strip_trailing_season_suffix("One-Punch Man: Season 2"),
+            "One-Punch Man"
+        );
+        assert_eq!(
+            strip_trailing_season_suffix("One-Punch Man - Season 2"),
+            "One-Punch Man"
+        );
+        assert_eq!(
+            strip_trailing_season_suffix("Solo Leveling Season 2 - Arise"),
+            "Solo Leveling Season 2 - Arise"
+        );
+        assert_eq!(strip_trailing_season_suffix("Season 2"), "Season 2");
     }
 
     #[test]

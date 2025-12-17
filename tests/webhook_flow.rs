@@ -245,9 +245,9 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
             anime: AniListMapped {
                 id: 176496,
                 id_mal: None,
-                name: "AniList English".to_string(),
+                name: "AniList English Season 2".to_string(),
                 eng_name: None,
-                original_title: Some("AniList Romaji".to_string()),
+                original_title: Some("AniList Romaji Season 2".to_string()),
                 synopsis: Some("AniList synopsis".to_string()),
                 genres: vec!["Action".to_string()],
                 cast: vec!["Cast A".to_string()],

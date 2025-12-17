@@ -604,12 +604,17 @@ async fn process_anilist_page(
         }
     };
 
-    info!(
+    debug!(
         page_id = %page_id,
         event_id = ?event_id,
+        anilist_id = anime_id,
+        season = ?season,
+        query = query,
+        "AniList resolved id"
+    );
+    info!(
         "Fetching AniList data for Anime '{}' (anilist id {})",
-        query,
-        anime_id
+        query, anime_id
     );
     let anime = match state.anilist.fetch_anime(anime_id).await {
         Ok(data) => data,
@@ -629,7 +634,13 @@ async fn process_anilist_page(
     };
 
     let mut updates = serde_json::Map::new();
-    notion::set_title(&mut updates, &state.title_property, &anime.name, schema);
+    let updated_title = crate::anilist::strip_trailing_season_suffix(&anime.name);
+    let original_title = anime
+        .original_title
+        .as_deref()
+        .map(crate::anilist::strip_trailing_season_suffix);
+
+    notion::set_title(&mut updates, &state.title_property, &updated_title, schema);
 
     // Explicitly blank Eng Name (anime title is already the "actual" title).
     notion::set_value(
@@ -641,7 +652,7 @@ async fn process_anilist_page(
     notion::set_value(
         &mut updates,
         "Original Title",
-        anime.original_title.map(notion::ValueInput::Text),
+        original_title.map(notion::ValueInput::Text),
         schema,
     );
     notion::set_value(
@@ -754,21 +765,19 @@ async fn process_anilist_page(
         })
     });
 
-    info!(
+    debug!(
         page_id = %page_id,
         event_id = ?event_id,
         "Updating Notion page from AniList"
     );
+    info!("Updating Notion page from AniList");
     state
         .notion
         .update_page(page_id, updates, icon, cover)
         .await?;
     info!(
-        page_id = %page_id,
-        event_id = ?event_id,
         "Finished AniList update '{}' -> '{}'",
-        raw_title,
-        anime.name
+        raw_title, updated_title
     );
     Ok(true)
 }
