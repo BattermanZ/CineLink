@@ -2,6 +2,7 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use axum::Router;
 use chrono::Utc;
+use cinelink::anilist::{AniListApi, AniListMapped};
 use cinelink::app::{build_router, AppState};
 use cinelink::notion::{NotionApi, PropertySchema, PropertyType, NOTION_VERSION};
 use cinelink::tmdb::{MediaData, TmdbApi};
@@ -93,10 +94,29 @@ impl TmdbApi for FakeTmdb {
     }
 }
 
+struct FakeAniList {
+    resolved_id: i32,
+    anime: AniListMapped,
+}
+
+#[async_trait::async_trait]
+impl AniListApi for FakeAniList {
+    async fn resolve_anime_id(&self, _query: &str, season: Option<i32>) -> anyhow::Result<i32> {
+        assert_eq!(season, Some(2));
+        Ok(self.resolved_id)
+    }
+
+    async fn fetch_anime(&self, id: i32) -> anyhow::Result<AniListMapped> {
+        assert_eq!(id, self.resolved_id);
+        Ok(self.anime.clone())
+    }
+}
+
 fn base_schema() -> PropertySchema {
     let mut types = HashMap::new();
     types.insert("Name".to_string(), PropertyType::Title);
     types.insert("Eng Name".to_string(), PropertyType::RichText);
+    types.insert("Original Title".to_string(), PropertyType::RichText);
     types.insert("Synopsis".to_string(), PropertyType::RichText);
     types.insert("Genre".to_string(), PropertyType::MultiSelect);
     types.insert("Cast".to_string(), PropertyType::RichText);
@@ -163,6 +183,7 @@ fn tmdb_movie() -> MediaData {
         id: 101,
         name: "TMDB Movie".to_string(),
         eng_name: Some("TMDB Movie".to_string()),
+        original_title: Some("TMDB Movie".to_string()),
         synopsis: Some("Movie overview".to_string()),
         genres: vec!["Drama".to_string()],
         cast: vec!["Actor A".to_string()],
@@ -187,6 +208,7 @@ fn tmdb_tv() -> MediaData {
         id: 202,
         name: "TMDB Show".to_string(),
         eng_name: Some("TMDB Show".to_string()),
+        original_title: Some("TMDB Show".to_string()),
         synopsis: Some("Show overview".to_string()),
         genres: vec!["Sci-Fi".to_string()],
         cast: vec!["Actor B".to_string()],
@@ -220,6 +242,32 @@ fn app_with_mocks(page: Value, tmdb: FakeTmdb) -> (Router, Arc<FakeNotion>) {
     let state = AppState {
         notion: notion.clone(),
         tmdb: Arc::new(tmdb),
+        anilist: Arc::new(FakeAniList {
+            resolved_id: 176496,
+            anime: AniListMapped {
+                id: 176496,
+                id_mal: None,
+                name: "AniList English Season 2".to_string(),
+                eng_name: None,
+                original_title: Some("AniList Romaji Season 2".to_string()),
+                synopsis: Some("AniList synopsis".to_string()),
+                genres: vec!["Action".to_string()],
+                cast: vec!["Cast A".to_string()],
+                director: vec!["Director A".to_string()],
+                is_adult: false,
+                content_rating: "All Audiences".to_string(),
+                country_of_origin: Some("Japan".to_string()),
+                language: Some("Japanese".to_string()),
+                release_date: Some("2025-01-05".to_string()),
+                year: Some("2025".to_string()),
+                runtime_minutes: Some(24.0),
+                episodes: Some(13),
+                trailer: Some("https://youtube.com/anime".to_string()),
+                poster: Some("https://anilist/poster.png".to_string()),
+                backdrop: Some("https://anilist/backdrop.jpg".to_string()),
+                imdb_page: Some("https://anilist.co/anime/176496".to_string()),
+            },
+        }),
         title_property: "Name".to_string(),
         schema: Arc::new(schema),
         signing_secret: WEBHOOK_SECRET.to_string(),
@@ -492,12 +540,96 @@ async fn resolves_imdb_id_for_tv_even_if_type_movie() {
 }
 
 #[tokio::test]
+async fn updates_anime_when_title_has_equals() {
+    let page = make_page("Ani Query=", "tv", Some("Season 2"));
+    let tmdb = FakeTmdb {
+        movie: tmdb_movie(),
+        tv: tmdb_tv(),
+    };
+    let (app, notion) = app_with_mocks(page, tmdb);
+
+    let page_id = "page-1";
+    let body = webhook_payload(&["title"], page_id);
+    let req = Request::builder()
+        .method("POST")
+        .uri("/")
+        .header("Content-Type", "application/json")
+        .header("Notion-Version", NOTION_VERSION)
+        .header("x-notion-signature", sign_body(&body))
+        .body(Body::from(body))
+        .unwrap();
+
+    let res = app.clone().oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    wait_for_update_count(&notion, 1).await;
+    let updates = notion.updates.lock().unwrap();
+    let (_, props, _icon, _cover) = updates.last().unwrap();
+
+    let name = props
+        .get("Name")
+        .and_then(|v| v.get("title"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(name, Some("AniList English"));
+
+    let original = props
+        .get("Original Title")
+        .and_then(|v| v.get("rich_text"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(original, Some("AniList Romaji"));
+
+    let eng_name = props
+        .get("Eng Name")
+        .and_then(|v| v.get("rich_text"))
+        .and_then(|arr| arr.as_array())
+        .and_then(|arr| arr.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|v| v.as_str());
+    assert_eq!(eng_name, Some(""));
+
+    let id = props
+        .get("ID")
+        .and_then(|v| v.get("number"))
+        .and_then(|v| v.as_f64());
+    assert_eq!(id, Some(176496.0));
+
+    let imdb_page = props
+        .get("IMDb Page")
+        .and_then(|v| v.get("url"))
+        .and_then(|v| v.as_str());
+    assert_eq!(imdb_page, Some("https://anilist.co/anime/176496"));
+
+    let genre_names = props
+        .get("Genre")
+        .and_then(|v| v.get("multi_select"))
+        .and_then(|v| v.as_array())
+        .map(|arr| {
+            arr.iter()
+                .filter_map(|v| v.get("name").and_then(|n| n.as_str()).map(str::to_string))
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    assert!(genre_names.contains(&"Anime".to_string()));
+    assert!(genre_names.contains(&"Animation".to_string()));
+}
+
+#[tokio::test]
 async fn uses_original_title_for_french_with_eng_name_set() {
     // Simulate French media: original title should be used for Name; Eng Name should be set.
     let french_media = MediaData {
         id: 303,
         name: "Titre anglais".to_string(), // localized title
         eng_name: None,                    // will be ignored; we set below
+        original_title: Some("Titre original".to_string()),
         synopsis: None,
         genres: vec![],
         cast: vec![],
@@ -558,4 +690,59 @@ async fn uses_original_title_for_french_with_eng_name_set() {
         .and_then(|t| t.get("content"))
         .and_then(|s| s.as_str());
     assert_eq!(eng_name, Some("English Title"));
+
+    assert!(props.get("Original Title").is_none());
+}
+
+#[tokio::test]
+async fn sets_original_title_when_using_english_title() {
+    let jp_media = MediaData {
+        id: 404,
+        name: "Spirited Away".to_string(),
+        eng_name: None,
+        original_title: Some("千と千尋の神隠し".to_string()),
+        synopsis: None,
+        genres: vec![],
+        cast: vec![],
+        director: vec![],
+        content_rating: None,
+        country_of_origin: vec![],
+        language: Some("Japanese".to_string()),
+        original_language: "ja".to_string(),
+        release_date: None,
+        year: None,
+        runtime_minutes: None,
+        episodes: None,
+        trailer: None,
+        poster: None,
+        backdrop: None,
+        imdb_page: None,
+    };
+
+    let page = make_page("Spirited Away ;", "Movie", None);
+    let (app, notion) = app_with_mocks(
+        page.clone(),
+        FakeTmdb {
+            movie: jp_media.clone(),
+            tv: tmdb_tv(),
+        },
+    );
+
+    let payload = webhook_payload(&["title"], page.get("id").unwrap().as_str().unwrap());
+    let res = app.oneshot(signed_request(payload)).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK);
+
+    wait_for_update_count(&notion, 1).await;
+    let updates = notion.updates.lock().unwrap();
+    let (_id, props, _, _) = &updates[0];
+
+    let original = props
+        .get("Original Title")
+        .and_then(|p| p.get("rich_text"))
+        .and_then(|t| t.as_array())
+        .and_then(|a| a.first())
+        .and_then(|v| v.get("text"))
+        .and_then(|t| t.get("content"))
+        .and_then(|s| s.as_str());
+    assert_eq!(original, Some("千と千尋の神隠し"));
 }

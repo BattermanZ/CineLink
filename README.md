@@ -1,17 +1,17 @@
-# CineLink v4.0.0
+# CineLink v4.1.0
 
-CineLink is a small webhook-driven service that listens for Notion page updates and auto-populates metadata from TMDB (movies and TV seasons).
+CineLink is a small webhook-driven service that listens for Notion page updates and auto-populates metadata from TMDB (movies and TV seasons) and AniList (anime).
 
 Disclaimer: This project was developed with the help of AI-assisted coding tools. Please review changes carefully before deploying.
 
 ## What it does
 
 - Listens on port `3146` for Notion webhooks (`POST /`).
-- When a page is “armed” (title ends with `;`) and the webhook indicates a relevant property changed, CineLink:
+- When a page is “armed” (title ends with `;` for TMDB or `=` for AniList) and the webhook indicates a relevant property changed, CineLink:
   - Fetches the page via the Notion API.
-  - Determines whether it’s a movie or TV item.
-  - Resolves a TMDB match from the title, a TMDB id, or an IMDb `tt...` id.
-  - Fetches metadata from TMDB.
+  - Determines whether it’s a movie/TV item (TMDB flow) or an anime (AniList flow).
+  - Resolves a match from the title or an ID (TMDB id / IMDb `tt...` / AniList id).
+  - Fetches metadata from TMDB or AniList.
   - Updates the Notion page properties and sets:
     - page icon to the poster (miniature)
     - page cover to the backdrop (background image)
@@ -28,23 +28,38 @@ CineLink intentionally ignores most Notion updates; it only considers a webhook 
   - `title` (Notion’s webhook field name), or
   - the Season property update marker seen in production payloads (`Siv%5D`), or a decoded `Season`
 
-Then, after fetching the page:
+Then, after fetching the page, it only proceeds if the page is “armed”:
 
-- If the page title does not end with `;`, CineLink does nothing.
-- Movies: title `"<something>;"` is enough.
-- TV: title must end with `;` and a season must be present; otherwise the update is silently ignored.
+- TMDB flow: title must end with `;`
+  - Movies: `"<query>;"` is enough.
+  - TV: title must end with `;` and a season must be present; otherwise the update is silently ignored.
+- AniList flow: title must end with `=`
+  - Season is optional; if missing, it defaults to season `1`.
 
 If CineLink cannot match a title to TMDB, it updates the Notion title to an error form like:
 
 `<original title>; | No TMDB movie match`
 
+For AniList, the error form is similar:
+
+`<original title>= | No AniList match`
+
 ## Supported title inputs
 
-When the title ends with `;`, the content before the semicolon can be:
+### TMDB (`;`)
+
+When the title ends with `;`, the content before the suffix can be:
 
 - A plain text title (TMDB search is used)
 - A TMDB numeric id (e.g. `2316;`)
 - An IMDb id (e.g. `tt22202452;`) via TMDB “Find by ID”
+
+### AniList (`=`)
+
+When the title ends with `=`, the content before the suffix can be:
+
+- A plain text title (AniList search is used)
+- An AniList numeric id (e.g. `176496=`)
 
 ## Notion database requirements
 
@@ -58,7 +73,7 @@ Copy `.env.example` to `.env` and set:
 
 - `NOTION_API_KEY`: Notion Internal Integration Secret (used for Notion API calls)
 - `NOTION_DATABASE_ID`: target database id
-- `NOTION_WEBHOOK_SECRET`: Notion webhook signing secret (used to verify `x-notion-signature`)
+- `NOTION_WEBHOOK_SECRET`: Notion webhook signing secret / verification token (used to verify `x-notion-signature`)
 - `TMDB_API_KEY`: TMDB API key
 
 ## Run locally
@@ -84,13 +99,13 @@ RUST_LOG=debug cargo run --bin cinelink_server
 Build:
 
 ```bash
-docker build -t cinelink:v4.0.0 .
+docker build -t cinelink:v4.1.0 .
 ```
 
 Run:
 
 ```bash
-docker run --rm -p 3146:3146 --env-file .env cinelink:v4.0.0
+docker run --rm -p 3146:3146 --env-file .env cinelink:v4.1.0
 ```
 
 Or use `docker-compose.yml`.
@@ -100,7 +115,7 @@ Example `docker-compose.yml`:
 ```yaml
 services:
   cinelink:
-    image: cinelink:v4.0.0
+    image: cinelink:v4.1.0
     container_name: cinelink
     restart: unless-stopped
     user: "1000:1000"
@@ -122,8 +137,8 @@ docker compose logs -f cinelink
 ## Security features (in-app)
 
 - Webhook signature verification (`x-notion-signature`) using `NOTION_WEBHOOK_SECRET` (constant-time comparison).
-- Timestamp freshness enforcement from the webhook `timestamp` field (default window: 5 minutes).
-- Per-IP and global rate limiting.
+- Invalid signatures are ignored with `200 OK` to avoid retry amplification.
+- Per-IP and global rate limiting (defaults: 60/min per IP, 200/min global, small burst allowance).
 - Body size limit (1MB) and strict `Content-Type: application/json`.
 - Event de-duplication by webhook `id` for a short TTL.
 - Limited concurrent processing (defaults to 8).
@@ -131,6 +146,14 @@ docker compose logs -f cinelink
 For production, still run behind a reverse proxy (TLS termination, connection-level rate limiting, and tighter network controls).
 
 ## Development
+
+### One-off TV backfill
+
+If you need to run a one-time “catch up” that updates all TV pages that already have a title (without `;`) and a `Season` selected, use:
+
+```bash
+cargo run --example backfill_tv -- --concurrency 8
+```
 
 Quality gates (recommended order):
 

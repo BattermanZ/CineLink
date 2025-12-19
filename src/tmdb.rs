@@ -2,16 +2,21 @@ use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
 use reqwest::Client;
 use serde::Deserialize;
+use std::collections::HashMap;
 use std::env;
 use std::time::Duration;
+use tokio::sync::OnceCell;
 
 const TMDB_BASE: &str = "https://api.themoviedb.org/3";
 const POSTER_BASE: &str = "https://image.tmdb.org/t/p/original";
+const MAX_RETRIES: usize = 3;
 
 #[derive(Debug, Clone)]
 pub struct TmdbClient {
     client: Client,
     api_key: String,
+    countries: OnceCell<HashMap<String, String>>,
+    languages: OnceCell<HashMap<String, String>>,
 }
 
 #[async_trait]
@@ -30,6 +35,7 @@ pub struct MediaData {
     pub id: i32,
     pub name: String,
     pub eng_name: Option<String>,
+    pub original_title: Option<String>,
     pub synopsis: Option<String>,
     pub genres: Vec<String>,
     pub cast: Vec<String>,
@@ -59,7 +65,12 @@ impl TmdbClient {
             .user_agent(user_agent)
             .build()
             .context("Failed to build TMDB HTTP client")?;
-        Ok(Self { client, api_key })
+        Ok(Self {
+            client,
+            api_key,
+            countries: OnceCell::new(),
+            languages: OnceCell::new(),
+        })
     }
 
     async fn fetch_movie_images(&self, id: i32, lang: &str) -> Result<ImageResponse> {
@@ -236,10 +247,11 @@ impl TmdbApi for TmdbClient {
             .backdrop_path
             .as_ref()
             .map(|p| format!("{POSTER_BASE}{p}"));
-        let country = origin_country(
+        let country_codes = origin_country(
             detail.origin_country.as_ref(),
             detail.production_countries.as_ref(),
         );
+        let country = self.country_names(country_codes).await;
         let genres = names(detail.genres.as_ref());
         let release_date = detail.release_date.clone();
         let year = release_date.as_deref().and_then(extract_year);
@@ -247,7 +259,7 @@ impl TmdbApi for TmdbClient {
             .imdb_id
             .as_ref()
             .map(|id| format!("https://www.imdb.com/title/{id}"));
-        let language = language_name(&detail.original_language);
+        let language = self.language_display_name(&detail.original_language).await;
         let use_original = detail.original_language == "fr" || detail.original_language == "es";
         let name = if use_original {
             detail.original_title.clone()
@@ -264,6 +276,7 @@ impl TmdbApi for TmdbClient {
             id: detail.id,
             name,
             eng_name,
+            original_title: Some(detail.original_title.clone()),
             synopsis: Some(detail.overview),
             genres,
             cast,
@@ -345,7 +358,8 @@ impl TmdbApi for TmdbClient {
             .backdrop_path
             .as_ref()
             .map(|p| format!("{POSTER_BASE}{p}"));
-        let country = origin_country(Some(&show_detail.origin_country), None);
+        let country_codes = origin_country(Some(&show_detail.origin_country), None);
+        let country = self.country_names(country_codes).await;
         let genres = names(show_detail.genres.as_ref());
         let air_date = season_detail.air_date.clone();
         let year = air_date.as_deref().and_then(extract_year);
@@ -360,7 +374,9 @@ impl TmdbApi for TmdbClient {
             .unwrap_or_default();
         let episodes_count = season_detail.episodes.len();
         let runtime = average_episode_runtime(&season_detail, &show_detail);
-        let language = language_name(&show_detail.original_language);
+        let language = self
+            .language_display_name(&show_detail.original_language)
+            .await;
         let use_original =
             show_detail.original_language == "fr" || show_detail.original_language == "es";
         let name = if use_original {
@@ -378,6 +394,7 @@ impl TmdbApi for TmdbClient {
             id: show_detail.id,
             name,
             eng_name,
+            original_title: Some(show_detail.original_name.clone()),
             synopsis: Some(if season_detail.overview.is_empty() {
                 show_detail.overview.clone()
             } else {
@@ -403,6 +420,75 @@ impl TmdbApi for TmdbClient {
 }
 
 impl TmdbClient {
+    async fn get_country_map(&self) -> Result<&HashMap<String, String>> {
+        if let Some(map) = self.countries.get() {
+            return Ok(map);
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct CountryItem {
+            iso_3166_1: String,
+            english_name: String,
+        }
+
+        let url = format!(
+            "{TMDB_BASE}/configuration/countries?language=en-US&api_key={}",
+            self.api_key
+        );
+        let items: Vec<CountryItem> = self.get_json(&url).await?;
+        let map: HashMap<String, String> = items
+            .into_iter()
+            .map(|c| (c.iso_3166_1, c.english_name))
+            .collect();
+        let _ = self.countries.set(map);
+        Ok(self.countries.get().expect("countries OnceCell is set"))
+    }
+
+    async fn country_names(&self, codes: Vec<String>) -> Vec<String> {
+        let Ok(map) = self.get_country_map().await else {
+            return codes;
+        };
+
+        codes
+            .into_iter()
+            .map(|code| map.get(&code).cloned().unwrap_or(code))
+            .collect()
+    }
+
+    async fn get_language_map(&self) -> Result<&HashMap<String, String>> {
+        if let Some(map) = self.languages.get() {
+            return Ok(map);
+        }
+
+        #[derive(Debug, Deserialize)]
+        struct LanguageItem {
+            iso_639_1: String,
+            english_name: String,
+        }
+
+        let url = format!(
+            "{TMDB_BASE}/configuration/languages?api_key={}",
+            self.api_key
+        );
+        let items: Vec<LanguageItem> = self.get_json(&url).await?;
+        let map: HashMap<String, String> = items
+            .into_iter()
+            .filter(|l| !l.iso_639_1.trim().is_empty())
+            .map(|l| (l.iso_639_1, l.english_name))
+            .collect();
+        let _ = self.languages.set(map);
+        Ok(self.languages.get().expect("languages OnceCell is set"))
+    }
+
+    async fn language_display_name(&self, code: &str) -> Option<String> {
+        if let Ok(map) = self.get_language_map().await {
+            if let Some(name) = map.get(code) {
+                return Some(name.clone());
+            }
+        }
+        fallback_language_name(code)
+    }
+
     async fn fetch_movie_appended(&self, id: i32) -> Result<MovieAppended> {
         let url = format!(
             "{TMDB_BASE}/movie/{id}?append_to_response=credits,release_dates,videos,external_ids,images&language=en-US&include_image_language=fr,es,null&api_key={}",
@@ -420,23 +506,38 @@ impl TmdbClient {
     }
 
     async fn get_json<T: for<'de> Deserialize<'de>>(&self, url: &str) -> Result<T> {
-        let res = self
-            .client
-            .get(url)
-            .send()
-            .await
-            .context("request failed")?;
-        let status = res.status();
-        let bytes = res.bytes().await.context("reading body failed")?;
-        if !status.is_success() {
-            return Err(anyhow!(
-                "TMDB request failed (status {}) for {}: {}",
-                status,
-                url,
-                String::from_utf8_lossy(&bytes)
-            ));
+        for attempt in 1..=MAX_RETRIES {
+            let res = self.client.get(url).send().await;
+            match res {
+                Ok(res) => {
+                    let status = res.status();
+                    if (status.as_u16() == 429 || status.is_server_error()) && attempt < MAX_RETRIES
+                    {
+                        let delay = retry_delay(attempt, res.headers().get("retry-after"));
+                        tokio::time::sleep(delay).await;
+                        continue;
+                    }
+                    let bytes = res.bytes().await.context("reading body failed")?;
+                    if !status.is_success() {
+                        return Err(anyhow!(
+                            "TMDB request failed (status {}) for {}: {}",
+                            status,
+                            url,
+                            String::from_utf8_lossy(&bytes)
+                        ));
+                    }
+                    return serde_json::from_slice(&bytes).context("JSON parse failed");
+                }
+                Err(e) => {
+                    if attempt < MAX_RETRIES && (e.is_timeout() || e.is_connect()) {
+                        tokio::time::sleep(retry_delay(attempt, None)).await;
+                        continue;
+                    }
+                    return Err(e).context("request failed");
+                }
+            }
         }
-        serde_json::from_slice(&bytes).context("JSON parse failed")
+        unreachable!("loop returns on success/final error")
     }
 
     async fn find_imdb(&self, imdb_id: &str, media: &str) -> Result<Option<i32>> {
@@ -483,6 +584,25 @@ impl TmdbClient {
         let tv_id = data.tv_results.and_then(|mut v| v.pop()).map(|r| r.id);
         Ok((movie_id, tv_id))
     }
+}
+
+fn retry_delay(attempt: usize, retry_after: Option<&reqwest::header::HeaderValue>) -> Duration {
+    if let Some(v) = retry_after.and_then(|h| h.to_str().ok()) {
+        if let Ok(secs) = v.parse::<u64>() {
+            return Duration::from_secs(secs.min(30));
+        }
+    }
+    let base_ms = 200u64.saturating_mul(2u64.saturating_pow((attempt - 1) as u32));
+    let jitter_ms = jitter_ms();
+    Duration::from_millis((base_ms + jitter_ms).min(5_000))
+}
+
+fn jitter_ms() -> u64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let now = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default();
+    (now.subsec_millis() as u64) % 100
 }
 
 #[derive(Debug, Deserialize)]
@@ -743,7 +863,7 @@ fn average_episode_runtime(season: &SeasonDetail, show: &ShowDetail) -> Option<f
         .map(|r| r as f32)
 }
 
-fn language_name(code: &str) -> Option<String> {
+fn fallback_language_name(code: &str) -> Option<String> {
     let name = match code {
         "en" => "English",
         "fr" => "French",
